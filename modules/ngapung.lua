@@ -1,8 +1,10 @@
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+
+-- Mengamankan UserInputService & RunService untuk mobile executor
+local UserInputService = game:GetService("UserInputService")
+local RunService = game.RunService or game:GetService("RunService")
 
 local FlyModule = {
     Enabled = false,
@@ -10,10 +12,12 @@ local FlyModule = {
     Connection = nil
 }
 
+-- Mengatur kecepatan terbang
 function FlyModule:setSpeed(value)
     self.Speed = tonumber(value) or 16
 end
 
+-- Mengaktifkan Mode Terbang
 function FlyModule:Enable()
     if self.Enabled then return end
     self.Enabled = true
@@ -22,7 +26,11 @@ function FlyModule:Enable()
     local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
     local Humanoid = Character:WaitForChild("Humanoid")
     
-
+    -- Bersihkan sisa BV lama jika ada biar ga double
+    if HumanoidRootPart:FindFirstChild("BrodzFlyBV") then
+        HumanoidRootPart.BrodzFlyBV:Destroy()
+    end
+    
     local bv = Instance.new("BodyVelocity")
     bv.Name = "BrodzFlyBV"
     bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
@@ -31,6 +39,7 @@ function FlyModule:Enable()
     
     Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
     
+    -- Loop pergerakan mengikuti arah kamera
     self.Connection = RunService.Heartbeat:Connect(function()
         if not self.Enabled or not HumanoidRootPart or not HumanoidRootPart.Parent then 
             self:Disable()
@@ -70,6 +79,7 @@ function FlyModule:Enable()
     Humanoid.Died:Connect(function() self:Disable() end)
 end
 
+-- Menambahkan method Disable yang tadinya hilang/missing
 function FlyModule:Disable()
     self.Enabled = false
     if self.Connection then
