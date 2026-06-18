@@ -36,9 +36,11 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local GUI = {}
 local noclipEnabled = false
 local flyEnabled = false
+local targetWalkSpeed = 16
+local targetFlySpeed = 16
 
 function GUI:Init(modules)
-    print("Brodz Hub: Activating Anti-Lag & Smart Toggle System...")
+    print("Brodz Hub: Activating Instant Responsive Sliders...")
     
     local Window = Fluent:CreateWindow({
         Title = "Brodz Hub V2",
@@ -56,35 +58,48 @@ function GUI:Init(modules)
     }
 
     -- =========================================================================
+    -- ENGINE RESPONSIVENESS (Menghilangkan Delay Slider)
+    -- =========================================================================
+    RunService.RenderStepped:Connect(function()
+        -- Memaksa Walkspeed langsung berubah saat slider digeser tanpa delay kontrol
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChild("Humanoid") and not flyEnabled then
+            char.Humanoid.WalkSpeed = targetWalkSpeed
+        end
+        -- Mengirim data speed terbang ke modul secara realtime
+        if modules.ngapung and typeof(modules.ngapung.setSpeed) == "function" then
+            pcall(function() modules.ngapung:setSpeed(targetFlySpeed) end)
+        end
+    end)
+
+    -- =========================================================================
     -- TAB MAIN FEATURES
     -- =========================================================================
-    if modules.ngabret and typeof(modules.ngabret.Enable) == "function" then
-        pcall(function() modules.ngabret:Enable() end)
-    end
-
     Tabs.Main:AddSlider("SpeedSlider", {
-        Title = "WalkSpeed", Default = 16, Min = 16, Max = 100, Rounding = 0,
+        Title = "WalkSpeed (Instant)", Default = 16, Min = 16, Max = 150, Rounding = 0,
         Callback = function(Value)
-            if modules.ngabret and typeof(modules.ngabret.setSpeed) == "function" then pcall(function() modules.ngabret:setSpeed(Value) end) end
+            targetWalkSpeed = Value
+            if modules.ngabret and typeof(modules.ngabret.setSpeed) == "function" then 
+                pcall(function() modules.ngabret:setSpeed(Value) end) 
+            end
         end
     })
 
     Tabs.Main:AddSlider("FlySpeedSlider", {
-        Title = "Fly Speed", Default = 16, Min = 16, Max = 100, Rounding = 0,
+        Title = "Fly Speed (Instant)", Default = 16, Min = 16, Max = 150, Rounding = 0,
         Callback = function(Value)
-            if modules.ngapung and typeof(modules.ngapung.setSpeed) == "function" then pcall(function() modules.ngapung:setSpeed(Value) end) end
+            targetFlySpeed = Value
         end
     })
 
-    local FlyToggle = Tabs.Main:AddToggle("FlyToggle", {Title = "Fly", Default = false})
+    local FlyToggle = Tabs.Main:AddToggle("FlyToggle", {Title = "Fly (Camera Direction)", Default = false})
     FlyToggle:OnChanged(function()
         flyEnabled = FlyToggle.Value
-        if flyEnabled then
-            if modules.ngapung and typeof(modules.ngapung.Enable) == "function" then pcall(function() modules.ngapung:Enable() end) end
-        else
-            if modules.ngapung then
-                if typeof(modules.ngapung.Disable) == "function" then pcall(function() modules.ngapung:Disable() end)
-                elseif typeof(modules.ngapung.Enable) == "function" then pcall(function() modules.ngapung:Enable() end) end
+        if modules.ngapung then
+            if flyEnabled then
+                if typeof(modules.ngapung.Enable) == "function" then pcall(function() modules.ngapung:Enable() end) end
+            else
+                if typeof(modules.ngapung.Disable) == "function" then pcall(function() modules.ngapung:Disable() end) end
             end
         end
     end)
@@ -119,14 +134,12 @@ function GUI:Init(modules)
         Content = "Target: None"
     })
 
-    -- VARIABEL TRACKING DI SINI (TEMPAT ASLINYA)
     local currentTeleportTarget = nil
     local teleportLoopConnection = nil
     local isRefreshing = false 
     local activeButtons = {}
     local activeConnections = {}
 
-    -- Fungsi menyingkat angka leaderboard (1B, 100M, dll)
     local function formatValue(val)
         local num = tonumber(val)
         if not num then return tostring(val) end
@@ -137,7 +150,6 @@ function GUI:Init(modules)
         else return tostring(num) end
     end
 
-    -- Fungsi aman mengambil objek data stats player
     local function getPlayerStatData(p)
         if not p:FindFirstChild("leaderstats") then return 0, nil end
         local leaderstats = p.leaderstats
@@ -149,13 +161,11 @@ function GUI:Init(modules)
         return 0, nil
     end
 
-    -- Fungsi utama merender list player berjejer & mengurutkannya
     local function updatePlayerListUI()
         if isRefreshing then return end 
         isRefreshing = true
 
         task.spawn(function()
-            -- Bersihkan tombol lama secara aman
             for _, btn in ipairs(activeButtons) do 
                 if btn and typeof(btn) == "table" and btn.Destroy then
                     pcall(function() btn:Destroy() end) 
@@ -163,7 +173,6 @@ function GUI:Init(modules)
             end
             table.clear(activeButtons)
 
-            -- Ambil seluruh player aktif di server
             local playerList = {}
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Parent then
@@ -172,16 +181,12 @@ function GUI:Init(modules)
                 end
             end
 
-            -- Mengurutkan tabel dari value yang terbesar ke terkecil
             table.sort(playerList, function(a, b) return a.Value > b.Value end)
 
-            -- Membuat susunan tombol baru berjejer ke bawah sesuai urutan leaderboard terbaru
             for index, data in ipairs(playerList) do
                 local p = data.Player
                 if p and p.Parent then
                     local formattedText = formatValue(data.Value)
-                    
-                    -- Memberikan tanda bulat hijau jika player ini sedang aktif di-teleport
                     local prefix = index .. ". "
                     if currentTeleportTarget == p.Name then
                         prefix = "🟢 " .. index .. ". "
@@ -195,52 +200,34 @@ function GUI:Init(modules)
                             Description = currentTeleportTarget == p.Name and "Click AGAIN to STOP teleport loop" or "Click to START loop teleport",
                             Callback = function()
                                 if modules.pepet then
-                                    -- KONDISI 1: TURN OFF (Pencet ulang tombol yang sama)
                                     if currentTeleportTarget == p.Name then
                                         currentTeleportTarget = nil 
-                                        
-                                        -- Matikan loop backup internal
                                         if teleportLoopConnection then
                                             teleportLoopConnection:Disconnect()
                                             teleportLoopConnection = nil
                                         end
-
-                                        -- Memanggil fungsi mematikan dari modul asli kamu
                                         if typeof(modules.pepet.Disable) == "function" then
                                             pcall(function() modules.pepet:Disable() end)
                                         elseif typeof(modules.pepet.Enable) == "function" then
                                             pcall(function() modules.pepet:Enable(nil) end) 
                                         end
-                                        
                                         TargetStatus:SetTitle("Loop Teleport Status: OFF")
                                         TargetStatus:SetContent("Target: None")
-                                        Fluent:Notify({Title = "Brodz Hub", Content = "Stopped teleporting to " .. p.Name, Duration = 2})
-                                        
-                                    -- KONDISI 2: TURN ON (Pencet target baru / mengaktifkan)
                                     else
-                                        -- Bersihkan sisa loop lama jika pindah target langsung
                                         if teleportLoopConnection then
                                             teleportLoopConnection:Disconnect()
                                             teleportLoopConnection = nil
                                         end
-
                                         currentTeleportTarget = p.Name 
-                                        
-                                        -- Pemicu Modul Asli Kamu (Mengirim data objek & string nama)
                                         if typeof(modules.pepet.Enable) == "function" then
                                             pcall(function() modules.pepet:Enable(p) end)
-                                            pcall(function() modules.pepet:Enable(p.Name) end)
                                         end
-
-                                        -- BACKUP ENGINE: Memaksa karakter nempel di posisi target setiap frame
-                                        teleportLoopConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                                        teleportLoopConnection = RunService.Heartbeat:Connect(function()
                                             if currentTeleportTarget == p.Name and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                                                 if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                                                    -- Teleport instan nempel ke target
                                                     LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
                                                 end
                                             else
-                                                -- Pengaman jika target keluar server mendadak
                                                 if teleportLoopConnection then
                                                     teleportLoopConnection:Disconnect()
                                                     teleportLoopConnection = nil
@@ -250,82 +237,41 @@ function GUI:Init(modules)
                                                 end
                                             end
                                         end)
-                                        
                                         TargetStatus:SetTitle("Loop Teleport Status: 🟢 ON")
                                         TargetStatus:SetContent("Sticky Tracking: " .. p.Name) 
-                                        Fluent:Notify({Title = "Brodz Hub", Content = "Now tracking " .. p.Name, Duration = 2})
                                     end
-                                    
-                                    -- Bypass refresh tampilan tombol agar lingkaran hijau langsung berubah
                                     isRefreshing = false
                                     updatePlayerListUI()
-                                else
-                                    Fluent:Notify({Title = "Error", Content = "modules.pepet tidak ditemukan!", Duration = 3})
                                 end
                             end
                         })
                     end)
-                    
-                    if successBtn and PButton then
-                        table.insert(activeButtons, PButton)
-                    end
+                    if successBtn and PButton then table.insert(activeButtons, PButton) end
                 end
             end
-
-            -- Pembatasan cooldown refresh 1 detik
             task.wait(1.0) 
             isRefreshing = false
         end)
     end
 
-    -- Setup Listener Deteksi Realtime
     local function setupRealtimeListeners()
-        for _, conn in ipairs(activeConnections) do 
-            if conn then pcall(function() conn:Disconnect() end) end 
-        end
+        for _, conn in ipairs(activeConnections) do if conn then pcall(function() conn:Disconnect() end) end end
         table.clear(activeConnections)
-
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer then
                 local _, statObj = getPlayerStatData(p)
                 if statObj then
-                    local conn = statObj.Changed:Connect(function() 
-                        updatePlayerListUI() 
-                    end)
-                    table.insert(activeConnections, conn)
-                else
-                    local conn = p.ChildAdded:Connect(function(child)
-                        if child.Name == "leaderstats" then
-                            task.wait(0.5)
-                            updatePlayerListUI()
-                            setupRealtimeListeners()
-                        end
-                    end)
+                    local conn = statObj.Changed:Connect(function() updatePlayerListUI() end)
                     table.insert(activeConnections, conn)
                 end
             end
         end
     end
 
-    -- Eksekusi awal sistem teleport list
     updatePlayerListUI()
     setupRealtimeListeners()
-
-    -- Sinkronisasi otomatis saat ada player baru masuk atau keluar server
-    Players.PlayerAdded:Connect(function(p)
-        p.ChildAdded:Connect(function(child)
-            if child.Name == "leaderstats" then
-                task.wait(1)
-                updatePlayerListUI()
-                setupRealtimeListeners()
-            end
-        end)
-    end)
-
-    Players.PlayerRemoving:Connect(function()
-        updatePlayerListUI()
-        setupRealtimeListeners()
-    end)
+    Players.PlayerAdded:Connect(function(p) updatePlayerListUI() setupRealtimeListeners() end)
+    Players.PlayerRemoving:Connect(function() updatePlayerListUI() setupRealtimeListeners() end)
 
     -- =========================================================================
     -- SUNTIK AVATAR PANEL (Sidebar Profile UI)
@@ -361,8 +307,6 @@ function GUI:Init(modules)
             NameLbl.Parent = ProfileFrame
         end
     end
-
-    Fluent:Notify({Title = "Brodz Hub Loaded", Content = "Optimization & Smart Toggle Engaged!", Duration = 4})
 end
 
 return GUI
