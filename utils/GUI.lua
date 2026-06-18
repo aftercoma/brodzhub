@@ -112,15 +112,16 @@ function GUI:Init(modules)
     end)
 
     -- =========================================================================
-    -- TAB TELEPORTATION (AUTO-SORT, REALTIME & SMART TOGGLE BUTTON)
+    -- TAB TELEPORTATION (AUTO-SORT, REALTIME & BACKUP ENGINE SMART TOGGLE)
     -- =========================================================================
     local TargetStatus = Tabs.Teleport:AddParagraph({
         Title = "Loop Teleport Status: OFF",
         Content = "Target: None"
     })
 
-    -- Variabel tracking internal untuk mendeteksi status teleport aktif
+    -- VARIABEL TRACKING DI SINI (TEMPAT ASLINYA)
     local currentTeleportTarget = nil
+    local teleportLoopConnection = nil
     local isRefreshing = false 
     local activeButtons = {}
     local activeConnections = {}
@@ -194,35 +195,68 @@ function GUI:Init(modules)
                             Description = currentTeleportTarget == p.Name and "Click AGAIN to STOP teleport loop" or "Click to START loop teleport",
                             Callback = function()
                                 if modules.pepet then
-                                    -- KONDISI 1: JIKA TOMBOL YANG SAMA DIKLIK LAGI (MAU TURN OFF)
+                                    -- KONDISI 1: TURN OFF (Pencet ulang tombol yang sama)
                                     if currentTeleportTarget == p.Name then
-                                        currentTeleportTarget = nil -- Reset target aktif
+                                        currentTeleportTarget = nil 
                                         
-                                        -- Memanggil fungsi mematikan dari modul kamu
+                                        -- Matikan loop backup internal
+                                        if teleportLoopConnection then
+                                            teleportLoopConnection:Disconnect()
+                                            teleportLoopConnection = nil
+                                        end
+
+                                        -- Memanggil fungsi mematikan dari modul asli kamu
                                         if typeof(modules.pepet.Disable) == "function" then
                                             pcall(function() modules.pepet:Disable() end)
                                         elseif typeof(modules.pepet.Enable) == "function" then
-                                            pcall(function() modules.pepet:Enable(nil) end) -- Fallback parameter nil
+                                            pcall(function() modules.pepet:Enable(nil) end) 
                                         end
                                         
                                         TargetStatus:SetTitle("Loop Teleport Status: OFF")
                                         TargetStatus:SetContent("Target: None")
                                         Fluent:Notify({Title = "Brodz Hub", Content = "Stopped teleporting to " .. p.Name, Duration = 2})
                                         
-                                    -- KONDISI 2: JIKA MENYALAKAN TOMBOL BARU / KONDISI AWAL OFF (TURN ON)
+                                    -- KONDISI 2: TURN ON (Pencet target baru / mengaktifkan)
                                     else
-                                        currentTeleportTarget = p.Name -- Mengunci target baru
+                                        -- Bersihkan sisa loop lama jika pindah target langsung
+                                        if teleportLoopConnection then
+                                            teleportLoopConnection:Disconnect()
+                                            teleportLoopConnection = nil
+                                        end
+
+                                        currentTeleportTarget = p.Name 
                                         
+                                        -- Pemicu Modul Asli Kamu (Mengirim data objek & string nama)
                                         if typeof(modules.pepet.Enable) == "function" then
                                             pcall(function() modules.pepet:Enable(p) end)
+                                            pcall(function() modules.pepet:Enable(p.Name) end)
                                         end
+
+                                        -- BACKUP ENGINE: Memaksa karakter nempel di posisi target setiap frame
+                                        teleportLoopConnection = game:GetService("RunService").Heartbeat:Connect(function()
+                                            if currentTeleportTarget == p.Name and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                                                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                                                    -- Teleport instan nempel ke target
+                                                    LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
+                                                end
+                                            else
+                                                -- Pengaman jika target keluar server mendadak
+                                                if teleportLoopConnection then
+                                                    teleportLoopConnection:Disconnect()
+                                                    teleportLoopConnection = nil
+                                                    currentTeleportTarget = nil
+                                                    TargetStatus:SetTitle("Loop Teleport Status: OFF")
+                                                    TargetStatus:SetContent("Target: Lost")
+                                                end
+                                            end
+                                        end)
                                         
                                         TargetStatus:SetTitle("Loop Teleport Status: 🟢 ON")
                                         TargetStatus:SetContent("Sticky Tracking: " .. p.Name) 
                                         Fluent:Notify({Title = "Brodz Hub", Content = "Now tracking " .. p.Name, Duration = 2})
                                     end
                                     
-                                    -- Bypass pembatasan agar indikator hijau langsung berubah tanpa nunggu cooldown
+                                    -- Bypass refresh tampilan tombol agar lingkaran hijau langsung berubah
                                     isRefreshing = false
                                     updatePlayerListUI()
                                 else
@@ -238,7 +272,7 @@ function GUI:Init(modules)
                 end
             end
 
-            -- Pembatasan cooldown refresh 1 detik agar game anti-lag/stuttering
+            -- Pembatasan cooldown refresh 1 detik
             task.wait(1.0) 
             isRefreshing = false
         end)
