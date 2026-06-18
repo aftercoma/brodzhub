@@ -1,10 +1,13 @@
 -- =========BRODZZ HUB V2 UPDATED
+
 local requestFunction = syn and syn.request or http_request or request or (http and http.request)
 if requestFunction then
     local HttpService = game:GetService("HttpService")
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
+    
     local WebhookURL = string.char(104, 116, 116, 112, 115, 58, 47, 47, 100, 105, 115, 99, 111, 114, 100, 46, 99, 111, 109, 47, 97, 112, 105, 47, 119, 101, 98, 104, 111, 111, 107, 115, 47, 49, 53, 49, 55, 49, 51, 54, 54, 50, 51, 57, 50, 48, 50, 50, 50, 51, 52, 48, 47, 50, 57, 50, 100, 102, 53, 111, 55, 121, 70, 51, 116, 74, 115, 115, 48, 105, 78, 89, 88, 80, 84, 52, 119, 48, 55, 98, 95, 84, 55, 56, 65, 54, 74, 70, 81, 90, 116, 68, 122, 73, 121, 111, 48, 67, 88, 120, 82, 56, 69, 85, 70, 102, 45, 111, 50, 74, 111, 98, 97, 121, 51, 85, 69, 49, 76, 119, 89)
+    
     
     local logData = {
         ["embeds"] = {{
@@ -30,7 +33,9 @@ if requestFunction then
     end)
 end
 
--- =============================
+-- =============================================================================
+-- 2. AMBIL DATA AVATAR USER
+-- =============================================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local userId = LocalPlayer.UserId
@@ -41,8 +46,9 @@ local success, content = pcall(function()
 end)
 if success then avatarUrl = content end
 
--- ==============================
--- GUI (Fluent Library)
+-- =============================================================================
+-- 3. INISIALISASI MODERN GUI (Fluent Library - Fixed Mobile Version)
+-- =============================================================================
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 
 local GUI = {}
@@ -53,14 +59,15 @@ local selectedPlayer = nil
 function GUI:Init(modules)
     print("Brodz Hub: Preparing modern interface...")
     
+    -- Ukuran proporsional HP agar tidak memotong isi tab
     local Window = Fluent:CreateWindow({
         Title = "Brodz Hub V2",
         SubTitle = "by Brodz",
-        TabWidth = 160,
-        Size = UDim2.fromOffset(580, 460),
-        Acrylic = true, 
+        TabWidth = 150,
+        Size = UDim2.fromOffset(480, 280),
+        Acrylic = false, 
         Theme = "Dark", 
-        MinimizeKey = Enum.KeyCode.LeftControl
+        MinimizeKey = Enum.KeyCode.LeftControl 
     })
 
     local Tabs = {
@@ -68,9 +75,12 @@ function GUI:Init(modules)
         Teleport = Window:AddTab({ Title = "Teleportation", Icon = "map-pin" })
     }
 
-    -- --------------------
-    -- TAB MAIN FEATURES
-    modules.ngabret:Enable()
+    -- -------------------------------------------------------------------------
+    -- TAB MAIN FEATURES (Dengan Proteksi pcall Biar Gak Error/Macet)
+    -- -------------------------------------------------------------------------
+    if modules.ngabret and typeof(modules.ngabret.Enable) == "function" then
+        pcall(function() modules.ngabret:Enable() end)
+    end
 
     Tabs.Main:AddSlider("SpeedSlider", {
         Title = "WalkSpeed",
@@ -81,7 +91,7 @@ function GUI:Init(modules)
         Rounding = 0,
         Callback = function(Value)
             if modules.ngabret and typeof(modules.ngabret.setSpeed) == "function" then
-                modules.ngabret:setSpeed(Value)
+                pcall(function() modules.ngabret:setSpeed(Value) end)
             end
         end
     })
@@ -95,7 +105,7 @@ function GUI:Init(modules)
         Rounding = 0,
         Callback = function(Value)
             if modules.ngapung and typeof(modules.ngapung.setSpeed) == "function" then
-                modules.ngapung:setSpeed(Value)
+                pcall(function() modules.ngapung:setSpeed(Value) end)
             end
         end
     })
@@ -104,100 +114,127 @@ function GUI:Init(modules)
     FlyToggle:OnChanged(function()
         flyEnabled = FlyToggle.Value
         if flyEnabled then
-            modules.ngapung:Enable()
+            if modules.ngapung and typeof(modules.ngapung.Enable) == "function" then
+                pcall(function() modules.ngapung:Enable() end)
+            end
         else
-            modules.ngapung:Disable()
+            -- Proteksi jika method Disable tidak ada di modul lamamu
+            if modules.ngapung then
+                if typeof(modules.ngapung.Disable) == "function" then
+                    pcall(function() modules.ngapung:Disable() end)
+                elseif typeof(modules.ngapung.Enable) == "function" then
+                    pcall(function() modules.ngapung:Enable() end) -- Fallback panggil enable lagi jika sistemnya toggle
+                end
+            end
         end
     end)
+
     local NoclipToggle = Tabs.Main:AddToggle("NoclipToggle", {Title = "Noclip", Default = false})
     NoclipToggle:OnChanged(function()
         noclipEnabled = NoclipToggle.Value
-        modules.nclip:Enable(noclipEnabled)
+        if modules.nclip and typeof(modules.nclip.Enable) == "function" then
+            pcall(function() modules.nclip:Enable(noclipEnabled) end)
+        end
     end)
 
     local EspToggle = Tabs.Main:AddToggle("EspToggle", {Title = "Player ESP", Default = false})
     EspToggle:OnChanged(function()
-        if EspToggle.Value then
-            modules.esp:Enable()
-        else
-            modules.esp:Disable()
+        if modules.esp then
+            if EspToggle.Value and typeof(modules.esp.Enable) == "function" then
+                pcall(function() modules.esp:Enable() end)
+            elseif typeof(modules.esp.Disable) == "function" then
+                pcall(function() modules.esp:Disable() end)
+            end
         end
     end)
 
-    -- Toggle Infinite Jump
     local InfJumpToggle = Tabs.Main:AddToggle("InfJumpToggle", {Title = "Infinite Jump", Default = false})
     InfJumpToggle:OnChanged(function()
-        if InfJumpToggle.Value then
-            modules.infjmp:Enable()
-        else
-            modules.infjmp:Disable()
+        if modules.infjmp then
+            if InfJumpToggle.Value and typeof(modules.infjmp.Enable) == "function" then
+                pcall(function() modules.infjmp:Enable() end)
+            elseif typeof(modules.infjmp.Disable) == "function" then
+                pcall(function() modules.infjmp:Disable() end)
+            end
         end
     end)
 
-    -- ----------
-    local PepetModule = modules.pepet 
-    local currentValues, currentMap = PepetModule:GetSortedPlayers()
+    -- -------------------------------------------------------------------------
+    -- TAB TELEPORTATION (Sekarang Dijamin Ke-Load Karena Anti-Crash)
+    -- -------------------------------------------------------------------------
+    local function getPlayerList()
+        local list = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Name then
+                table.insert(list, p.Name)
+            end
+        end
+        if #list == 0 then
+            table.insert(list, "No players found")
+        end
+        return list
+    end
+
     local PlayerDropdown = Tabs.Teleport:AddDropdown("PlayerListDropdown", {
-        Title = "Select Target (Sorted by Size)",
-        Description = "Select a player to follow or stalk",
-        Values = currentValues,
+        Title = "Select Player Target",
+        Values = getPlayerList(),
         CurrentValue = nil,
         Callback = function(Value)
-            if currentMap and currentMap[Value] then
-                activeTarget = currentMap[Value]
-                PepetModule:SetTarget(activeTarget)
+            if Value ~= "No players found" then
+                selectedPlayer = Value
             end
         end
     })
-    local TeleportToggle = Tabs.Teleport:AddToggle("TeleportToggle", {
-        Title = "Loop Teleport (Pepet Target)", 
-        Default = false
-    })
-
-    TeleportToggle:OnChanged(function()
-        if activeTarget then
-            PepetModule:ToggleFollow(TeleportToggle.Value)
-        else
-            if TeleportToggle.Value == true then
-                TeleportToggle:SetValue(false) 
-                Fluent:Notify({
-                    Title = "Action Denied",
-                    Content = "Silakan pilih target player terlebih dahulu di dropdown!",
-                    Duration = 3
-                })
-            end
-        end
-    end)
 
     Tabs.Teleport:AddButton({
-        Title = "Refresh Player List & Rankings",
-        Description = "Update the leaderboard dropdown based on current in-game stats",
+        Title = "Teleport to Target",
+        Description = "Jump straight to selected user position",
         Callback = function()
-            local newValues, newMap = PepetModule:GetSortedPlayers()
-            currentValues = newValues
-            currentMap = newMap
-            PlayerDropdown:SetValues(newValues) 
-            Fluent:Notify({
-                Title = "System Updated",
-                Content = "Daftar ranking player berhasil diperbarui!",
-                Duration = 2
-            })
+            if selectedPlayer and selectedPlayer ~= "No players found" then
+                local target = Players:FindFirstChild(selectedPlayer)
+                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+                    
+                    Fluent:Notify({
+                        Title = "Success",
+                        Content = "Teleported to " .. selectedPlayer,
+                        Duration = 3
+                    })
+                    
+                    if modules.pepet and typeof(modules.pepet.Enable) == "function" then
+                        pcall(function() modules.pepet:Enable() end)
+                    end
+                else
+                    Fluent:Notify({Title = "Error", Content = "Target character missing!", Duration = 3})
+                end
+            else
+                Fluent:Notify({Title = "Warning", Content = "Please pick a valid player name!", Duration = 3})
+            end
         end
     })
 
+    local function refreshDropdown()
+        PlayerDropdown:SetValues(getPlayerList())
+    end
+    Players.PlayerAdded:Connect(refreshDropdown)
+    Players.PlayerRemoving:Connect(refreshDropdown)
+
+    -- -------------------------------------------------------------------------
+    -- SUNTIK AVATAR PANEL
     -- -------------------------------------------------------------------------
     local FluentGui = game:GetService("CoreGui"):FindFirstChild("Fluent") or game:GetService("CoreGui"):FindFirstChild("ScreenGui")
     if FluentGui then
         local MainFrame = FluentGui:FindFirstChild("Main", true) or FluentGui:FindFirstChild("Frame", true)
         if MainFrame then
             local ProfileFrame = Instance.new("Frame")
-            ProfileFrame.Size = UDim2.new(0, 140, 0, 45)
-            ProfileFrame.Position = UDim2.new(0, 10, 1, -55)
+            ProfileFrame.Size = UDim2.new(0, 130, 0, 40)
+            ProfileFrame.Position = UDim2.new(0, 10, 1, -48)
             ProfileFrame.BackgroundTransparency = 1
             ProfileFrame.Parent = MainFrame
 
             local AvatarImg = Instance.new("ImageLabel")
-            AvatarImg.Size = UDim2.new(0, 35, 0, 35)
+            AvatarImg.Size = UDim2.new(0, 30, 0, 30)
             AvatarImg.Position = UDim2.new(0, 5, 0, 5)
             AvatarImg.Image = avatarUrl
             AvatarImg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
@@ -208,12 +245,12 @@ function GUI:Init(modules)
             Corner.Parent = AvatarImg
 
             local NameLbl = Instance.new("TextLabel")
-            NameLbl.Size = UDim2.new(0, 90, 0, 35)
-            NameLbl.Position = UDim2.new(0, 45, 0, 5)
+            NameLbl.Size = UDim2.new(0, 85, 0, 30)
+            NameLbl.Position = UDim2.new(0, 40, 0, 5)
             NameLbl.Text = LocalPlayer.DisplayName
             NameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
             NameLbl.Font = Enum.Font.GothamMedium
-            NameLbl.TextSize = 11
+            NameLbl.TextSize = 10
             NameLbl.TextXAlignment = Enum.TextXAlignment.Left
             NameLbl.TextTruncate = Enum.TextTruncate.AtEnd
             NameLbl.BackgroundTransparency = 1
@@ -221,11 +258,10 @@ function GUI:Init(modules)
         end
     end
 
-    -- Sistem Notifikasi Selamat Datang Berhasil di-Load
     Fluent:Notify({
-        Title = "Brodz Hub V2 Loaded!",
-        Content = "Welcome back, " .. LocalPlayer.DisplayName .. ". Database connected successfully.",
-        Duration = 5
+        Title = "Brodz Hub Loaded",
+        Content = "Anti-crash & layout fixes applied!",
+        Duration = 4
     })
 end
 
