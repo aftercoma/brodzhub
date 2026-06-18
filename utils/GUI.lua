@@ -29,14 +29,16 @@ local success, content = pcall(function()
 end)
 if success then avatarUrl = content end
 
--- 3. INTERFACE INITIALIZATION
+-- =============================================================================
+-- 3. INTERFACE INITIALIZATION (Fluent Library)
+-- =============================================================================
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local GUI = {}
 local noclipEnabled = false
 local flyEnabled = false
 
 function GUI:Init(modules)
-    print("Brodz Hub: Preparing interface...")
+    print("Brodz Hub: Activating Anti-Lag & Smart Toggle System...")
     
     local Window = Fluent:CreateWindow({
         Title = "Brodz Hub V2",
@@ -110,116 +112,153 @@ function GUI:Init(modules)
     end)
 
     -- =========================================================================
-    -- TAB TELEPORTATION (Auto-Sort & Realtime)
+    -- TAB TELEPORTATION (AUTO-SORT, REALTIME & SMART TOGGLE BUTTON)
     -- =========================================================================
-local TargetStatus = Tabs.Teleport:AddParagraph({
+    local TargetStatus = Tabs.Teleport:AddParagraph({
         Title = "Loop Teleport Status: OFF",
         Content = "Target: None"
     })
 
-    -- Tombol Global untuk mematikan pelacakan langsung seketika
-    local StopButton = Tabs.Teleport:AddButton({
-        Title = "🛑 STOP LOOP TELEPORT",
-        Description = "Click here to turn off any active loop teleport immediately.",
-        Callback = function()
-            if modules.pepet and typeof(modules.pepet.ToggleFollow) == "function" then
-                pcall(function()
-                    modules.pepet:ToggleFollow(false) -- Matikan loop di modul aslimu
-                end)
-            end
-            _G.CurrentTeleportTarget = nil
-            TargetStatus:SetTitle("Loop Teleport Status: OFF")
-            TargetStatus:SetContent("Target: None")
-            Fluent:Notify({Title = "Teleport System", Content = "Loop teleport disabled.", Duration = 3})
-        end
-    })
-
+    -- Variabel tracking internal untuk mendeteksi status teleport aktif
+    local currentTeleportTarget = nil
+    local isRefreshing = false 
     local activeButtons = {}
     local activeConnections = {}
 
-    -- Fungsi utama untuk me-render daftar berjejer menggunakan logika sort asli kamu
-    local function updatePlayerListUI()
-        -- Bersihkan tombol lama agar tidak menumpuk di layar
-        for _, btn in ipairs(activeButtons) do 
-            btn:Destroy() 
-        end
-        table.clear(activeButtons)
-
-        -- PENGAMBILAN DATA: Menggunakan fungsi GetSortedPlayers() asli dari tpGui.lua kamu!
-        if modules.pepet and typeof(modules.pepet.GetSortedPlayers) == "function" then
-            local dropdownValues, formatMap = modules.pepet:GetSortedPlayers()
-            
-            -- dropdownValues berisi array teks string berurutan dari terbesar ke terkecil
-            for index, displayText in ipairs(dropdownValues) do
-                local playerObj = formatMap[displayText] -- Ambil object Player aslinya dari map
-                
-                if playerObj then
-                    -- Buat tombol berjejer ke bawah sesuai urutan leaderboard aslimu
-                    local PButton = Tabs.Teleport:AddButton({
-                        Title = displayText,
-                        Description = "Click to toggle sticky teleport to " .. playerObj.DisplayName,
-                        Callback = function()
-                            -- LOGIKA TOGGLE LUAR
-                            if _G.CurrentTeleportTarget == playerObj.Name then
-                                -- Jika mengklik orang yang sama, matikan loop-nya
-                                if modules.pepet and typeof(modules.pepet.ToggleFollow) == "function" then
-                                    pcall(function() modules.pepet:ToggleFollow(false) end)
-                                end
-                                _G.CurrentTeleportTarget = nil
-                                TargetStatus:SetTitle("Loop Teleport Status: OFF")
-                                TargetStatus:SetContent("Target: None")
-                                Fluent:Notify({Title = "Loop Off", Content = "Stopped following " .. playerObj.DisplayName, Duration = 2})
-                            else
-                                -- Jika mengklik orang baru, pasang target ke modul aslimu
-                                if modules.pepet and typeof(modules.pepet.SetTarget) == "function" and typeof(modules.pepet.ToggleFollow) == "function" then
-                                    
-                                    _G.CurrentTeleportTarget = playerObj.Name
-                                    
-                                    pcall(function()
-                                        modules.pepet:SetTarget(playerObj)   -- 1. Set target objek player
-                                        modules.pepet:ToggleFollow(true)     -- 2. Nyalakan Heartbeat bawaanmu
-                                    end)
-                                    
-                                    TargetStatus:SetTitle("Loop Teleport Status: 🟢 ON")
-                                    TargetStatus:SetContent("Sticky Tracking: " .. playerObj.DisplayName)
-                                    Fluent:Notify({Title = "Brodz Hub", Content = "Locking onto " .. playerObj.DisplayName, Duration = 3})
-                                else
-                                    Fluent:Notify({Title = "Error", Content = "Fungsi modul tpGui tidak lengkap!", Duration = 3})
-                                end
-                            end
-                        end
-                    })
-                    table.insert(activeButtons, PButton)
-                end
-            end
-        else
-            -- Antisipasi / Fail-safe jika modul pepet belum terdaftar di main loader
-            local ParagraphError = Tabs.Teleport:AddParagraph({
-                Title = "Module Error",
-                Content = "Gagal memuat GetSortedPlayers dari modules.pepet. Pastikan registrasi modul benar."
-            })
-            table.insert(activeButtons, ParagraphError)
-        end
+    -- Fungsi menyingkat angka leaderboard (1B, 100M, dll)
+    local function formatValue(val)
+        local num = tonumber(val)
+        if not num then return tostring(val) end
+        if num >= 1e12 then return string.format("%.2fT", num / 1e12):gsub("%.00", "")
+        elseif num >= 1e9 then return string.format("%.2fB", num / 1e9):gsub("%.00", "")
+        elseif num >= 1e6 then return string.format("%.2fM", num / 1e6):gsub("%.00", "")
+        elseif num >= 1e3 then return string.format("%.2fK", num / 1e3):gsub("%.00", "")
+        else return tostring(num) end
     end
 
-    -- Monitor perubahan value secara realtime menggunakan object leaderstats
+    -- Fungsi aman mengambil objek data stats player
+    local function getPlayerStatData(p)
+        if not p:FindFirstChild("leaderstats") then return 0, nil end
+        local leaderstats = p.leaderstats
+        for _, stat in ipairs(leaderstats:GetChildren()) do
+            if stat:IsA("IntValue") or stat:IsA("NumberValue") then
+                return stat.Value, stat
+            end
+        end
+        return 0, nil
+    end
+
+    -- Fungsi utama merender list player berjejer & mengurutkannya
+    local function updatePlayerListUI()
+        if isRefreshing then return end 
+        isRefreshing = true
+
+        task.spawn(function()
+            -- Bersihkan tombol lama secara aman
+            for _, btn in ipairs(activeButtons) do 
+                if btn and typeof(btn) == "table" and btn.Destroy then
+                    pcall(function() btn:Destroy() end) 
+                end
+            end
+            table.clear(activeButtons)
+
+            -- Ambil seluruh player aktif di server
+            local playerList = {}
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Parent then
+                    local rawValue, statObj = getPlayerStatData(p)
+                    table.insert(playerList, {Player = p, Value = rawValue, StatObject = statObj})
+                end
+            end
+
+            -- Mengurutkan tabel dari value yang terbesar ke terkecil
+            table.sort(playerList, function(a, b) return a.Value > b.Value end)
+
+            -- Membuat susunan tombol baru berjejer ke bawah sesuai urutan leaderboard terbaru
+            for index, data in ipairs(playerList) do
+                local p = data.Player
+                if p and p.Parent then
+                    local formattedText = formatValue(data.Value)
+                    
+                    -- Memberikan tanda bulat hijau jika player ini sedang aktif di-teleport
+                    local prefix = index .. ". "
+                    if currentTeleportTarget == p.Name then
+                        prefix = "🟢 " .. index .. ". "
+                    end
+                    
+                    local displayFormat = prefix .. p.Name .. " | [" .. formattedText .. "]"
+                    
+                    local successBtn, PButton = pcall(function()
+                        return Tabs.Teleport:AddButton({
+                            Title = displayFormat,
+                            Description = currentTeleportTarget == p.Name and "Click AGAIN to STOP teleport loop" or "Click to START loop teleport",
+                            Callback = function()
+                                if modules.pepet then
+                                    -- KONDISI 1: JIKA TOMBOL YANG SAMA DIKLIK LAGI (MAU TURN OFF)
+                                    if currentTeleportTarget == p.Name then
+                                        currentTeleportTarget = nil -- Reset target aktif
+                                        
+                                        -- Memanggil fungsi mematikan dari modul kamu
+                                        if typeof(modules.pepet.Disable) == "function" then
+                                            pcall(function() modules.pepet:Disable() end)
+                                        elseif typeof(modules.pepet.Enable) == "function" then
+                                            pcall(function() modules.pepet:Enable(nil) end) -- Fallback parameter nil
+                                        end
+                                        
+                                        TargetStatus:SetTitle("Loop Teleport Status: OFF")
+                                        TargetStatus:SetContent("Target: None")
+                                        Fluent:Notify({Title = "Brodz Hub", Content = "Stopped teleporting to " .. p.Name, Duration = 2})
+                                        
+                                    -- KONDISI 2: JIKA MENYALAKAN TOMBOL BARU / KONDISI AWAL OFF (TURN ON)
+                                    else
+                                        currentTeleportTarget = p.Name -- Mengunci target baru
+                                        
+                                        if typeof(modules.pepet.Enable) == "function" then
+                                            pcall(function() modules.pepet:Enable(p) end)
+                                        end
+                                        
+                                        TargetStatus:SetTitle("Loop Teleport Status: 🟢 ON")
+                                        TargetStatus:SetContent("Sticky Tracking: " .. p.Name) 
+                                        Fluent:Notify({Title = "Brodz Hub", Content = "Now tracking " .. p.Name, Duration = 2})
+                                    end
+                                    
+                                    -- Bypass pembatasan agar indikator hijau langsung berubah tanpa nunggu cooldown
+                                    isRefreshing = false
+                                    updatePlayerListUI()
+                                else
+                                    Fluent:Notify({Title = "Error", Content = "modules.pepet tidak ditemukan!", Duration = 3})
+                                end
+                            end
+                        })
+                    end)
+                    
+                    if successBtn and PButton then
+                        table.insert(activeButtons, PButton)
+                    end
+                end
+            end
+
+            -- Pembatasan cooldown refresh 1 detik agar game anti-lag/stuttering
+            task.wait(1.0) 
+            isRefreshing = false
+        end)
+    end
+
+    -- Setup Listener Deteksi Realtime
     local function setupRealtimeListeners()
-        for _, conn in ipairs(activeConnections) do conn:Disconnect() end
+        for _, conn in ipairs(activeConnections) do 
+            if conn then pcall(function() conn:Disconnect() end) end 
+        end
         table.clear(activeConnections)
 
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LocalPlayer then
-                local leaderstats = p:FindFirstChild("leaderstats")
-                if leaderstats then
-                    for _, stat in ipairs(leaderstats:GetChildren()) do
-                        if stat:IsA("IntValue") or stat:IsA("NumberValue") then
-                            -- Setiap kali point player bertambah/berubah, susun ulang list-nya secara berjejer
-                            local conn = stat.Changed:Connect(function() 
-                                updatePlayerListUI() 
-                            end)
-                            table.insert(activeConnections, conn)
-                        end
-                    end
+                local _, statObj = getPlayerStatData(p)
+                if statObj then
+                    local conn = statObj.Changed:Connect(function() 
+                        updatePlayerListUI() 
+                    end)
+                    table.insert(activeConnections, conn)
                 else
                     local conn = p.ChildAdded:Connect(function(child)
                         if child.Name == "leaderstats" then
@@ -234,18 +273,19 @@ local TargetStatus = Tabs.Teleport:AddParagraph({
         end
     end
 
-    -- Jalankan inisialisasi awal list
-    task.spawn(function()
-        task.wait(0.5) -- Beri waktu sedikit agar folder leaderstats game selesai loading sepenuhnya
-        updatePlayerListUI()
-        setupRealtimeListeners()
-    end)
+    -- Eksekusi awal sistem teleport list
+    updatePlayerListUI()
+    setupRealtimeListeners()
 
-    -- Jalankan update otomatis jika ada orang baru masuk atau keluar server
-    Players.PlayerAdded:Connect(function()
-        task.wait(1)
-        updatePlayerListUI()
-        setupRealtimeListeners()
+    -- Sinkronisasi otomatis saat ada player baru masuk atau keluar server
+    Players.PlayerAdded:Connect(function(p)
+        p.ChildAdded:Connect(function(child)
+            if child.Name == "leaderstats" then
+                task.wait(1)
+                updatePlayerListUI()
+                setupRealtimeListeners()
+            end
+        end)
     end)
 
     Players.PlayerRemoving:Connect(function()
@@ -254,7 +294,7 @@ local TargetStatus = Tabs.Teleport:AddParagraph({
     end)
 
     -- =========================================================================
-    -- SIDEBAR PROFILE AVATAR SCRIPT
+    -- SUNTIK AVATAR PANEL (Sidebar Profile UI)
     -- =========================================================================
     local FluentGui = game:GetService("CoreGui"):FindFirstChild("Fluent") or game:GetService("CoreGui"):FindFirstChild("ScreenGui")
     if FluentGui then
@@ -288,7 +328,7 @@ local TargetStatus = Tabs.Teleport:AddParagraph({
         end
     end
 
-    Fluent:Notify({Title = "Brodz Hub Loaded", Content = "Ready for action, bro!", Duration = 4})
+    Fluent:Notify({Title = "Brodz Hub Loaded", Content = "Optimization & Smart Toggle Engaged!", Duration = 4})
 end
 
 return GUI
