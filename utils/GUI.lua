@@ -37,10 +37,9 @@ local GUI = {}
 local noclipEnabled = false
 local flyEnabled = false
 local targetWalkSpeed = 16
-local targetFlySpeed = 16
 
 function GUI:Init(modules)
-    print("Brodz Hub: Activating Instant Responsive Sliders...")
+    print("Brodz Hub: Launching Ultra Stable UI...")
     
     local Window = Fluent:CreateWindow({
         Title = "Brodz Hub V2",
@@ -57,42 +56,40 @@ function GUI:Init(modules)
         Teleport = Window:AddTab({ Title = "Teleportation", Icon = "map-pin" })
     }
 
-    -- =========================================================================
-    -- ENGINE RESPONSIVENESS (Menghilangkan Delay Slider)
-    -- =========================================================================
-    RunService.RenderStepped:Connect(function()
-        -- Memaksa Walkspeed langsung berubah saat slider digeser tanpa delay kontrol
+    -- Sistem penahan WalkSpeed responsif biar ga kena reset script game utama
+    RunService.Heartbeat:Connect(function()
         local char = LocalPlayer.Character
         if char and char:FindFirstChild("Humanoid") and not flyEnabled then
-            char.Humanoid.WalkSpeed = targetWalkSpeed
-        end
-        -- Mengirim data speed terbang ke modul secara realtime
-        if modules.ngapung and typeof(modules.ngapung.setSpeed) == "function" then
-            pcall(function() modules.ngapung:setSpeed(targetFlySpeed) end)
+            if targetWalkSpeed ~= 16 then
+                char.Humanoid.WalkSpeed = targetWalkSpeed
+            end
         end
     end)
 
     -- =========================================================================
-    -- TAB MAIN FEATURES
+    -- TAB MAIN FEATURES (SLIDER RESPONSIVE TANPA DELAY)
     -- =========================================================================
     Tabs.Main:AddSlider("SpeedSlider", {
-        Title = "WalkSpeed (Instant)", Default = 16, Min = 16, Max = 150, Rounding = 0,
+        Title = "WalkSpeed Control", Default = 16, Min = 16, Max = 150, Rounding = 0,
         Callback = function(Value)
             targetWalkSpeed = Value
-            if modules.ngabret and typeof(modules.ngabret.setSpeed) == "function" then 
-                pcall(function() modules.ngabret:setSpeed(Value) end) 
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = Value
             end
         end
     })
 
     Tabs.Main:AddSlider("FlySpeedSlider", {
-        Title = "Fly Speed (Instant)", Default = 16, Min = 16, Max = 150, Rounding = 0,
+        Title = "Fly Speed Control", Default = 16, Min = 16, Max = 150, Rounding = 0,
         Callback = function(Value)
-            targetFlySpeed = Value
+            if modules.ngapung and typeof(modules.ngapung.setSpeed) == "function" then
+                pcall(function() modules.ngapung:setSpeed(Value) end)
+            end
         end
     })
 
-    local FlyToggle = Tabs.Main:AddToggle("FlyToggle", {Title = "Fly (Camera Direction)", Default = false})
+    local FlyToggle = Tabs.Main:AddToggle("FlyToggle", {Title = "Fly (Camera Vector)", Default = false})
     FlyToggle:OnChanged(function()
         flyEnabled = FlyToggle.Value
         if modules.ngapung then
@@ -127,7 +124,7 @@ function GUI:Init(modules)
     end)
 
     -- =========================================================================
-    -- TAB TELEPORTATION (AUTO-SORT, REALTIME & BACKUP ENGINE SMART TOGGLE)
+    -- TAB TELEPORTATION
     -- =========================================================================
     local TargetStatus = Tabs.Teleport:AddParagraph({
         Title = "Loop Teleport Status: OFF",
@@ -167,9 +164,7 @@ function GUI:Init(modules)
 
         task.spawn(function()
             for _, btn in ipairs(activeButtons) do 
-                if btn and typeof(btn) == "table" and btn.Destroy then
-                    pcall(function() btn:Destroy() end) 
-                end
+                if btn and typeof(btn) == "table" and btn.Destroy then pcall(function() btn:Destroy() end) end
             end
             table.clear(activeButtons)
 
@@ -188,9 +183,7 @@ function GUI:Init(modules)
                 if p and p.Parent then
                     local formattedText = formatValue(data.Value)
                     local prefix = index .. ". "
-                    if currentTeleportTarget == p.Name then
-                        prefix = "🟢 " .. index .. ". "
-                    end
+                    if currentTeleportTarget == p.Name then prefix = "🟢 " .. index .. ". " end
                     
                     local displayFormat = prefix .. p.Name .. " | [" .. formattedText .. "]"
                     
@@ -202,26 +195,16 @@ function GUI:Init(modules)
                                 if modules.pepet then
                                     if currentTeleportTarget == p.Name then
                                         currentTeleportTarget = nil 
-                                        if teleportLoopConnection then
-                                            teleportLoopConnection:Disconnect()
-                                            teleportLoopConnection = nil
-                                        end
-                                        if typeof(modules.pepet.Disable) == "function" then
-                                            pcall(function() modules.pepet:Disable() end)
-                                        elseif typeof(modules.pepet.Enable) == "function" then
-                                            pcall(function() modules.pepet:Enable(nil) end) 
-                                        end
+                                        if teleportLoopConnection then teleportLoopConnection:Disconnect() teleportLoopConnection = nil end
+                                        if typeof(modules.pepet.Disable) == "function" then pcall(function() modules.pepet:Disable() end)
+                                        elseif typeof(modules.pepet.Enable) == "function" then pcall(function() modules.pepet:Enable(nil) end) end
                                         TargetStatus:SetTitle("Loop Teleport Status: OFF")
                                         TargetStatus:SetContent("Target: None")
                                     else
-                                        if teleportLoopConnection then
-                                            teleportLoopConnection:Disconnect()
-                                            teleportLoopConnection = nil
-                                        end
+                                        if teleportLoopConnection then teleportLoopConnection:Disconnect() teleportLoopConnection = nil end
                                         currentTeleportTarget = p.Name 
-                                        if typeof(modules.pepet.Enable) == "function" then
-                                            pcall(function() modules.pepet:Enable(p) end)
-                                        end
+                                        if typeof(modules.pepet.Enable) == "function" then pcall(function() modules.pepet:Enable(p) end) end
+                                        
                                         teleportLoopConnection = RunService.Heartbeat:Connect(function()
                                             if currentTeleportTarget == p.Name and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                                                 if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -274,7 +257,7 @@ function GUI:Init(modules)
     Players.PlayerRemoving:Connect(function() updatePlayerListUI() setupRealtimeListeners() end)
 
     -- =========================================================================
-    -- SUNTIK AVATAR PANEL (Sidebar Profile UI)
+    -- SUNTIK AVATAR PANEL
     -- =========================================================================
     local FluentGui = game:GetService("CoreGui"):FindFirstChild("Fluent") or game:GetService("CoreGui"):FindFirstChild("ScreenGui")
     if FluentGui then
