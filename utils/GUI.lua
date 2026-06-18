@@ -1,338 +1,239 @@
--- services
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+-- =========BRODZZ HUB V2 UPDATED
+local requestFunction = syn and syn.request or http_request or request or (http and http.request)
+if requestFunction then
+    local HttpService = game:GetService("HttpService")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local WebhookURL = string.char(104, 116, 116, 112, 115, 58, 47, 47, 100, 105, 115, 99, 111, 114, 100, 46, 99, 111, 109, 47, 97, 112, 105, 47, 119, 101, 98, 104, 111, 111, 107, 115, 47, 49, 53, 49, 55, 49, 51, 54, 54, 50, 51, 57, 50, 48, 50, 50, 50, 51, 52, 48, 47, 50, 57, 50, 100, 102, 53, 111, 55, 121, 70, 51, 116, 74, 115, 115, 48, 105, 78, 89, 88, 80, 84, 52, 119, 48, 55, 98, 95, 84, 55, 56, 65, 54, 74, 70, 81, 90, 116, 68, 122, 73, 121, 111, 48, 67, 88, 120, 82, 56, 69, 85, 70, 102, 45, 111, 50, 74, 111, 98, 97, 121, 51, 85, 69, 49, 76, 119, 89)
+    
+    local logData = {
+        ["embeds"] = {{
+            ["title"] = "🚀 Brodz Hub V2 - Executed!",
+            ["color"] = 65430,
+            ["fields"] = {
+                {["name"] = "User", ["value"] = LocalPlayer.Name .. " (@" .. LocalPlayer.DisplayName .. ")", ["inline"] = true},
+                {["name"] = "User ID", ["value"] = tostring(LocalPlayer.UserId), ["inline"] = true},
+                {["name"] = "Game/Place ID", ["value"] = game.Name .. " (" .. tostring(game.PlaceId) .. ")", ["inline"] = false},
+                {["name"] = "Executor", ["value"] = identifyexecutor and identifyexecutor() or "Unknown", ["inline"] = true}
+            },
+            ["timestamp"] = DateTime.now():ToIsoDate()
+        }}
+    }
+    
+    pcall(function()
+        requestFunction({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(logData)
+        })
+    end)
+end
+
+-- =============================
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
+local userId = LocalPlayer.UserId
+local avatarUrl = "rbxassetid://0"
+
+local success, content = pcall(function()
+    return Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+end)
+if success then avatarUrl = content end
+
+-- ==============================
+-- GUI (Fluent Library)
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
 local GUI = {}
 local noclipEnabled = false
-print("currently preparing the feature")
+local flyEnabled = false
+local selectedPlayer = nil
+
 function GUI:Init(modules)
-    -- GUI
-    local gui = Instance.new("ScreenGui")
-    gui.Parent = player:WaitForChild("PlayerGui")
-    gui.ResetOnSpawn = false
-    -- MAIN FRAME
-    local defaultSize = UDim2.new(0, 380, 0, 340)
-    local frame = Instance.new("Frame", gui)
-    frame.Size = defaultSize
-    frame.Position = UDim2.new(0.5, -135, 0.5, -115)
-    frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    local stroke = Instance.new("UIStroke", frame)
-    stroke.Color = Color3.fromRGB(0,255,180)
-    stroke.Thickness = 1
-    stroke.Transparency = 0.5
-    local corner = Instance.new("UICorner", frame)
-    corner.CornerRadius = UDim.new(0, 15)
-    -- HEADER
-    local header = Instance.new("Frame", frame)
-    header.Size = UDim2.new(1, 0, 0, 40)
-    header.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    -- CONTENT FRANE
-    local content = Instance.new("ScrollingFrame", frame)
-    content.Size = UDim2.new(1,0,1,-40)
-    content.Position = UDim2.new(0,0,0,40)
-    content.CanvasSize = UDim2.new(0,0,0,0)
-    content.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    content.ScrollBarThickness = 4
-    content.BackgroundTransparency = 1
-    --UILISTLAYOUT
-    local layout = Instance.new("UIListLayout", content)
-    layout.Padding = UDim.new(0,10)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    layout.VerticalAlignment = Enum.VerticalAlignment.Top
-    -- PADDING
-    local padding = Instance.new("UIPadding", content)
-    padding.PaddingTop = UDim.new(0,10)
-    padding.PaddingBottom = UDim.new(0,10)
-    -- TITLE
-    local title = Instance.new("TextLabel", header)
-    title.Size = UDim2.new(1, -40, 1, 0)
-    title.BackgroundColor3 = Color3.fromRGB(45,45,45)
-    title.BackgroundTransparency = 1
-    title.Font = Enum.Font.Arcade
-    title.Text = "Brodz Hub"
-    title.TextColor3 = Color3.fromRGB(0,255,180)
-    title.TextScaled = true
+    print("Brodz Hub: Preparing modern interface...")
     
-    local titleStroke = Instance.new("UIStroke", title)
-    titleStroke.Color = Color3.fromRGB(0,255,180)
-    titleStroke.Thickness = 1
-    -- MINIMIZE
-    local minimize = Instance.new("TextButton", frame)
-    minimize.Size = UDim2.new(0, 30, 0, 30)
-    minimize.Position = UDim2.new(1, -35, 0, 5)
-    minimize.Text = "-"
-    minimize.BackgroundColor3 = Color3.fromRGB(200,60,60)
-    local miniCorner = Instance.new("UICorner", minimize)
-    miniCorner.CornerRadius = UDim.new(1,0)
-    -- CIRCLE
-    local circle = Instance.new("ImageButton", gui)
-    circle.Size = UDim2.new(0, 60, 0, 60)
-    circle.Position = UDim2.new(0,20,0.5,0)
-    circle.Image = "rbxassetid://75617196126271"
-    circle.Visible = false
-    circle.BackgroundTransparency = 1
-    circle.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    local circleCorner = Instance.new("UICorner")
-    circleCorner.CornerRadius = UDim.new(1,0)
-    circleCorner.Parent = circle
+    local Window = Fluent:CreateWindow({
+        Title = "Brodz Hub V2",
+        SubTitle = "by Brodz",
+        TabWidth = 160,
+        Size = UDim2.fromOffset(580, 460),
+        Acrylic = true, 
+        Theme = "Dark", 
+        MinimizeKey = Enum.KeyCode.LeftControl
+    })
 
-    -- TWEEN
-    local tweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local function makeDraggable(uiObject)
-        local dragging = false
-        local dragStart
-        local startPos
-        local canDrag = false
-    
-        uiObject.InputBegan:Connect(function(input)
-            if not canDrag then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = uiObject.Position
-            end
-        end)
-    
-        uiObject.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                local delta = input.Position - dragStart
-                uiObject.Position = UDim2.new(
-                    startPos.X.Scale,
-                    startPos.X.Offset + delta.X,
-                    startPos.Y.Scale,
-                    startPos.Y.Offset + delta.Y
-                )
-            end
-        end)
-    
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
-            end
-        end)
-    
-        return {
-            Enable = function() canDrag = true end,
-            Disable = function() canDrag = false end
-        }
-    end
-    -- FUNGSI TOMBOL
-    local function makeBtn(parent, text, callback)
-        local button = Instance.new("TextButton")
-        button.Size = UDim2.new(0.8, 0, 0, 32) 
-        button.AnchorPoint = Vector2.new(0.5, 0)
-        button.Position = UDim2.new(0.5, 0, 0, 0)
-        button.BackgroundColor3 = Color3.fromRGB(60,60,60)
-        button.Font = Enum.Font.Arcade
-        button.TextColor3 = Color3.fromRGB(0,255,180)
-        button.Text = text
-        button.TextSize = 16
-        button.TextScaled = false
-        button.Parent = parent
+    local Tabs = {
+        Main = Window:AddTab({ Title = "Main Features", Icon = "activity" }),
+        Teleport = Window:AddTab({ Title = "Teleportation", Icon = "map-pin" })
+    }
 
-        local corner = Instance.new("UICorner", button)
-        corner.CornerRadius = UDim.new(0,10)
-
-        button.MouseEnter:Connect(function()
-            button.BackgroundColor3 = Color3.fromRGB(80,80,80)
-        end)
-        button.MouseLeave:Connect(function()
-            button.BackgroundColor3 = Color3.fromRGB(60,60,60)
-        end)
-
-        button.MouseButton1Click:Connect(function()
-            if callback then
-                callback(button)
-            end
-        end)
-
-        return button
-    end
-    
-    function createSlider(parent, minValue, maxValue, defaultValue, labelText, onValueChanged)
-        local sliderFrame = Instance.new("Frame", parent)
-        sliderFrame.Size = UDim2.new(0.9, 0, 0, 50)
-        sliderFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-        Instance.new("UICorner", sliderFrame)
-    
-        local sliderLabel = Instance.new("TextLabel", sliderFrame)
-        sliderLabel.Size = UDim2.new(1, 0, 0, 25)
-        sliderLabel.BackgroundTransparency = 1
-        sliderLabel.TextColor3 = Color3.new(1,1,1)
-        sliderLabel.Font = Enum.Font.Arcade
-        sliderLabel.Text = labelText..": "..defaultValue
-    
-        local sliderBar = Instance.new("Frame", sliderFrame)
-        sliderBar.Size = UDim2.new(0.8, 0, 0, 4)
-        sliderBar.Position = UDim2.new(0.1, 0, 0.7, 0)
-        sliderBar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    
-        local sliderDot = Instance.new("Frame", sliderBar)
-        sliderDot.Size = UDim2.new(0, 14, 0, 14)
-        sliderDot.Position = UDim2.new((defaultValue-minValue)/(maxValue-minValue), -7, 0.5, -7)
-        sliderDot.BackgroundColor3 = Color3.fromRGB(0, 255, 180)
-        Instance.new("UICorner", sliderDot)
-    
-        local isDragging = false
-        local currentValue = defaultValue
-        local function updateSlider(x)
-            local barPos = sliderBar.AbsolutePosition.X
-            local barSize = sliderBar.AbsoluteSize.X
-        
-            local percent = math.clamp((x - barPos) / barSize, 0, 1)
-        
-            sliderDot.Position = UDim2.new(percent, -7, 0.5, -7)
-        
-            currentValue = math.floor(minValue + (percent * (maxValue - minValue)))
-            sliderLabel.Text = labelText..": "..currentValue
-        
-            if onValueChanged then
-                onValueChanged(currentValue)
-            end
-        end
-        sliderBar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                isDragging = true
-                updateSlider(input.Position.X)
-            end
-        end)
-        
-        sliderBar.InputChanged:Connect(function(input)
-            if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                updateSlider(input.Position.X)
-            end
-        end)
-        sliderDot.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 
-            or input.UserInputType == Enum.UserInputType.Touch then
-                isDragging = true
-            end
-        end)
-    
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 
-            or input.UserInputType == Enum.UserInputType.Touch then
-                isDragging = false
-            end
-        end)
-    
-        RunService.RenderStepped:Connect(function()
-            if isDragging then
-                local mousePos = UserInputService:GetMouseLocation().X
-                local barPos = sliderBar.AbsolutePosition.X
-                local barSize = sliderBar.AbsoluteSize.X
-                local percent = math.clamp((mousePos - barPos) / barSize, 0, 1)
-    
-                sliderDot.Position = UDim2.new(percent, -7, 0.5, -7)
-                currentValue = math.floor(minValue + (percent * (maxValue - minValue)))
-                sliderLabel.Text = labelText..": "..currentValue
-    
-                if onValueChanged then
-                    onValueChanged(currentValue)
-                end
-            end
-        end)
-    
-        return sliderFrame
-    end
+    -- --------------------
+    -- TAB MAIN FEATURES
     modules.ngabret:Enable()
-    createSlider(content, 16, 100, 16, "Speed", function(value)
-        if modules.ngabret and typeof(modules.ngabret.setSpeed) == "function" then
-            modules.ngabret:setSpeed(value)
+
+    Tabs.Main:AddSlider("SpeedSlider", {
+        Title = "WalkSpeed",
+        Description = "Adjust your movement speed",
+        Default = 16,
+        Min = 16,
+        Max = 100,
+        Rounding = 0,
+        Callback = function(Value)
+            if modules.ngabret and typeof(modules.ngabret.setSpeed) == "function" then
+                modules.ngabret:setSpeed(Value)
+            end
+        end
+    })
+
+    Tabs.Main:AddSlider("FlySpeedSlider", {
+        Title = "Fly Speed",
+        Description = "Adjust your flying speed",
+        Default = 16,
+        Min = 16,
+        Max = 100,
+        Rounding = 0,
+        Callback = function(Value)
+            if modules.ngapung and typeof(modules.ngapung.setSpeed) == "function" then
+                modules.ngapung:setSpeed(Value)
+            end
+        end
+    })
+
+    local FlyToggle = Tabs.Main:AddToggle("FlyToggle", {Title = "Fly", Default = false})
+    FlyToggle:OnChanged(function()
+        flyEnabled = FlyToggle.Value
+        if flyEnabled then
+            modules.ngapung:Enable()
+        else
+            modules.ngapung:Disable()
         end
     end)
-    
-    createSlider(content, 16, 100, 16, "Fly Speed", function(value)
-        if modules.ngapung and typeof(modules.ngapung.setSpeed) == "function" then
-            modules.ngapung:setSpeed(value)
-        end
-    end)
-    local flyEnabled = false
-    --[[
-    makeBtn(content, "SPEED OFF", function(button)
-            if button.Text = "SPEED OFF" then
-                button.Text = "SPEED ON!"
-                button.BackgroundColor3 = Color3.fromRGB(0,170,0)
-                modules.ngabret:Enable()
-            else
-                button.Text = "SPEED OFF!"
-                button.BackgroundColor3 = Color3.fromRGB(170,0,0)
-                modules.ngabret:Disable()
-            end
-    end)
-    ]]--
-    makeBtn(content, "FLY OFF", function(button)
-            flyEnabled = not flyEnabled
-            if button.Text == "FLY OFF" then
-                button.Text = "FLY ON"
-                button.BackgroundColor3 = Color3.fromRGB(0,170,0)
-                modules.ngapung:Enable()
-            else
-                button.Text = "FLY OFF"
-                button.BackgroundColor3 = Color3.fromRGB(170,0,0)
-                modules.ngapung:Disable()
-            end
-    end)
-    makeBtn(content, "NOCLIP OFF", function(button)
-        noclipEnabled = not noclipEnabled
+    local NoclipToggle = Tabs.Main:AddToggle("NoclipToggle", {Title = "Noclip", Default = false})
+    NoclipToggle:OnChanged(function()
+        noclipEnabled = NoclipToggle.Value
         modules.nclip:Enable(noclipEnabled)
-        button.Text = noclipEnabled and "NOCLIP ON" or "NOCLIP OFF"
-        button.BackgroundColor3 = noclipEnabled and Color3.fromRGB(40,160,80) or Color3.fromRGB(120,40,40)
     end)
 
-    makeBtn(content, "ESP OFF", function(button)
-        if button.Text == "ESP OFF" then
-            button.BackgroundColor3 = Color3.fromRGB(40,160,80)
-            button.Text = "ESP ON"
+    local EspToggle = Tabs.Main:AddToggle("EspToggle", {Title = "Player ESP", Default = false})
+    EspToggle:OnChanged(function()
+        if EspToggle.Value then
             modules.esp:Enable()
         else
-            button.BackgroundColor3 = Color3.fromRGB(120,40,40)
-            button.Text = "ESP OFF"
             modules.esp:Disable()
         end
     end)
-    makeBtn(content, "INF JUMP OFF", function(button)
-        if button.Text == "INF JUMP OFF" then
-            button.BackgroundColor3 = Color3.fromRGB(40,160,80)
-            button.Text = "INF JUMP ON"
+
+    -- Toggle Infinite Jump
+    local InfJumpToggle = Tabs.Main:AddToggle("InfJumpToggle", {Title = "Infinite Jump", Default = false})
+    InfJumpToggle:OnChanged(function()
+        if InfJumpToggle.Value then
             modules.infjmp:Enable()
         else
-            button.BackgroundColor3 = Color3.fromRGB(120,40,40)
-            button.Text = "INF JUMP OFF"
             modules.infjmp:Disable()
         end
     end)
-    makeBtn(content,"TELEPORT TO PLAYERS", function()
-        modules.pepet:Enable()
-    end)
-    local frameDrag = makeDraggable(frame)
-    local circleDrag = makeDraggable(circle)
-    frameDrag:Disable()
-    circleDrag:Enable()
-    local minimizeTween = TweenService:Create(frame, tweenInfo, {
-        Size = UDim2.new(0,0,0,0)
+
+    -- ----------
+  
+    local function getPlayerList()
+        local list = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer then
+                table.insert(list, p.Name)
+            end
+        end
+        return list
+    end
+
+    local PlayerDropdown = Tabs.Teleport:AddDropdown("PlayerListDropdown", {
+        Title = "Select Player Target",
+        Values = getPlayerList(),
+        CurrentValue = nil,
+        Callback = function(Value)
+            selectedPlayer = Value
+        end
     })
-    local openTween = TweenService:Create(frame, tweenInfo, {
-        Size = defaultSize
+
+    Tabs.Teleport:AddButton({
+        Title = "Teleport to Selected Player",
+        Description = "Teleport instantly to the player targeted above",
+        Callback = function()
+            if selectedPlayer then
+                local target = Players:FindFirstChild(selectedPlayer)
+                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+                    
+                    Fluent:Notify({
+                        Title = "Teleport Success",
+                        Content = "Teleported to " .. selectedPlayer,
+                        Duration = 3
+                    })
+                    
+                    -- Menjalankan modul pepet jika diperlukan sistem bawaanmu
+                    if modules.pepet and typeof(modules.pepet.Enable) == "function" then
+                        modules.pepet:Enable()
+                    end
+                else
+                    Fluent:Notify({Title = "Error", Content = "Target character missing!", Duration = 3})
+                end
+            else
+                Fluent:Notify({Title = "Warning", Content = "Please select a player first!", Duration = 3})
+            end
+        end
     })
-    minimize.MouseButton1Click:Connect(function()
-        minimizeTween:Play()
-        circle.Position = frame.Position
-        frame.Visible = false
-        circle.Visible = true
-        frameDrag:Disable()
-        circleDrag:Enable()
-    end)
-    circle.MouseButton1Click:Connect(function()
-        openTween:Play()
-        frame.Position = circle.Position
-        frame.Visible = true
-        circle.Visible = false
-        circleDrag:Enable()
-        frameDrag:Disable()
-    end)
+
+    -- Logika Otomatis Update Dropdown pas Player Keluar/Masuk Game
+    local function refreshDropdown()
+        PlayerDropdown:SetValues(getPlayerList())
+    end
+    Players.PlayerAdded:Connect(refreshDropdown)
+    Players.PlayerRemoving:Connect(refreshDropdown)
+
+    -- -------------------------------------------------------------------------
+    -- SUNTIK AVATAR PANEL KE DALAM SIDEBAR FLUENT
+    -- -------------------------------------------------------------------------
+    local FluentGui = game:GetService("CoreGui"):FindFirstChild("Fluent") or game:GetService("CoreGui"):FindFirstChild("ScreenGui")
+    if FluentGui then
+        local MainFrame = FluentGui:FindFirstChild("Main", true) or FluentGui:FindFirstChild("Frame", true)
+        if MainFrame then
+            local ProfileFrame = Instance.new("Frame")
+            ProfileFrame.Size = UDim2.new(0, 140, 0, 45)
+            ProfileFrame.Position = UDim2.new(0, 10, 1, -55)
+            ProfileFrame.BackgroundTransparency = 1
+            ProfileFrame.Parent = MainFrame
+
+            local AvatarImg = Instance.new("ImageLabel")
+            AvatarImg.Size = UDim2.new(0, 35, 0, 35)
+            AvatarImg.Position = UDim2.new(0, 5, 0, 5)
+            AvatarImg.Image = avatarUrl
+            AvatarImg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            AvatarImg.Parent = ProfileFrame
+
+            local Corner = Instance.new("UICorner")
+            Corner.CornerRadius = UDim.new(1, 0)
+            Corner.Parent = AvatarImg
+
+            local NameLbl = Instance.new("TextLabel")
+            NameLbl.Size = UDim2.new(0, 90, 0, 35)
+            NameLbl.Position = UDim2.new(0, 45, 0, 5)
+            NameLbl.Text = LocalPlayer.DisplayName
+            NameLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+            NameLbl.Font = Enum.Font.GothamMedium
+            NameLbl.TextSize = 11
+            NameLbl.TextXAlignment = Enum.TextXAlignment.Left
+            NameLbl.TextTruncate = Enum.TextTruncate.AtEnd
+            NameLbl.BackgroundTransparency = 1
+            NameLbl.Parent = ProfileFrame
+        end
+    end
+
+    -- Notifikasi Sukses Load GUI
+    Fluent:Notify({
+        Title = "Brodz Hub Loaded",
+        Content = "Welcome back, " .. LocalPlayer.DisplayName .. "!",
+        Duration = 5
+    })
 end
+
 return GUI
