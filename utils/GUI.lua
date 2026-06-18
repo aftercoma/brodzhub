@@ -39,7 +39,7 @@ local flyEnabled = false
 local targetWalkSpeed = 16
 
 function GUI:Init(modules)
-    print("Brodz Hub: Launching Ultra Stable UI...")
+    print("Brodz Hub: Launching Mobile Optimized UI...")
     
     local Window = Fluent:CreateWindow({
         Title = "Brodz Hub V2",
@@ -56,18 +56,17 @@ function GUI:Init(modules)
         Teleport = Window:AddTab({ Title = "Teleportation", Icon = "map-pin" })
     }
 
-    -- Sistem penahan WalkSpeed responsif biar ga kena reset script game utama
-    RunService.Heartbeat:Connect(function()
-        local char = LocalPlayer.Character
-        if char and char:FindFirstChild("Humanoid") and not flyEnabled then
-            if targetWalkSpeed ~= 16 then
-                char.Humanoid.WalkSpeed = targetWalkSpeed
-            end
+    -- Proteksi & Pemicu Otomatis saat Karakter Respawn agar Speed Baru Tetap Aktif
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        local humanoid = char:WaitForChild("Humanoid", 5)
+        if humanoid and not flyEnabled and targetWalkSpeed ~= 16 then
+            task.wait(0.5)
+            humanoid.WalkSpeed = targetWalkSpeed
         end
     end)
 
     -- =========================================================================
-    -- TAB MAIN FEATURES (SLIDER RESPONSIVE TANPA DELAY)
+    -- TAB MAIN FEATURES (SLIDER SUPER RESPONSIF & INSTAN)
     -- =========================================================================
     Tabs.Main:AddSlider("SpeedSlider", {
         Title = "WalkSpeed Control", Default = 16, Min = 16, Max = 150, Rounding = 0,
@@ -97,6 +96,9 @@ function GUI:Init(modules)
                 if typeof(modules.ngapung.Enable) == "function" then pcall(function() modules.ngapung:Enable() end) end
             else
                 if typeof(modules.ngapung.Disable) == "function" then pcall(function() modules.ngapung:Disable() end) end
+                -- Kembalikan walkspeed asal sesudah terbang selesai
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("Humanoid") then char.Humanoid.WalkSpeed = targetWalkSpeed end
             end
         end
     end)
@@ -124,7 +126,7 @@ function GUI:Init(modules)
     end)
 
     -- =========================================================================
-    -- TAB TELEPORTATION
+    -- TAB TELEPORTATION (MOBILE ENGINE COMPATIBLE)
     -- =========================================================================
     local TargetStatus = Tabs.Teleport:AddParagraph({
         Title = "Loop Teleport Status: OFF",
@@ -132,7 +134,7 @@ function GUI:Init(modules)
     })
 
     local currentTeleportTarget = nil
-    local teleportLoopConnection = nil
+    local isTeleporting = false
     local isRefreshing = false 
     local activeButtons = {}
     local activeConnections = {}
@@ -195,31 +197,36 @@ function GUI:Init(modules)
                                 if modules.pepet then
                                     if currentTeleportTarget == p.Name then
                                         currentTeleportTarget = nil 
-                                        if teleportLoopConnection then teleportLoopConnection:Disconnect() teleportLoopConnection = nil end
+                                        isTeleporting = false
+                                        
                                         if typeof(modules.pepet.Disable) == "function" then pcall(function() modules.pepet:Disable() end)
                                         elseif typeof(modules.pepet.Enable) == "function" then pcall(function() modules.pepet:Enable(nil) end) end
                                         TargetStatus:SetTitle("Loop Teleport Status: OFF")
                                         TargetStatus:SetContent("Target: None")
                                     else
-                                        if teleportLoopConnection then teleportLoopConnection:Disconnect() teleportLoopConnection = nil end
                                         currentTeleportTarget = p.Name 
+                                        isTeleporting = true
+                                        
                                         if typeof(modules.pepet.Enable) == "function" then pcall(function() modules.pepet:Enable(p) end) end
                                         
-                                        teleportLoopConnection = RunService.Heartbeat:Connect(function()
-                                            if currentTeleportTarget == p.Name and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                                                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                                                    LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
-                                                end
-                                            else
-                                                if teleportLoopConnection then
-                                                    teleportLoopConnection:Disconnect()
-                                                    teleportLoopConnection = nil
+                                        -- Mobile Backup Thread: Loop nempel instan tanpa menggunakan RunService
+                                        task.spawn(function()
+                                            while isTeleporting and currentTeleportTarget == p.Name do
+                                                if p and p.Parent and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                                                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                                                        LocalPlayer.Character.HumanoidRootPart.CFrame = p.Character.HumanoidRootPart.CFrame
+                                                    end
+                                                else
+                                                    isTeleporting = false
                                                     currentTeleportTarget = nil
                                                     TargetStatus:SetTitle("Loop Teleport Status: OFF")
                                                     TargetStatus:SetContent("Target: Lost")
+                                                    break
                                                 end
+                                                task.wait() -- Jeda frame aman anti-lag di mobile
                                             end
                                         end)
+                                        
                                         TargetStatus:SetTitle("Loop Teleport Status: 🟢 ON")
                                         TargetStatus:SetContent("Sticky Tracking: " .. p.Name) 
                                     end
