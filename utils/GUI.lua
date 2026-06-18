@@ -135,63 +135,56 @@ function GUI:Init(modules)
     end)
 
     -- ----------
-  
-    local function getPlayerList()
-        local list = {}
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then
-                table.insert(list, p.Name)
-            end
-        end
-        return list
-    end
-
+    local PepetModule = modules.pepet 
+    local currentValues, currentMap = PepetModule:GetSortedPlayers()
     local PlayerDropdown = Tabs.Teleport:AddDropdown("PlayerListDropdown", {
-        Title = "Select Player Target",
-        Values = getPlayerList(),
+        Title = "Select Target (Sorted by Size)",
+        Description = "Select a player to follow or stalk",
+        Values = currentValues,
         CurrentValue = nil,
         Callback = function(Value)
-            selectedPlayer = Value
-        end
-    })
-
-    Tabs.Teleport:AddButton({
-        Title = "Teleport to Selected Player",
-        Description = "Teleport instantly to the player targeted above",
-        Callback = function()
-            if selectedPlayer then
-                local target = Players:FindFirstChild(selectedPlayer)
-                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
-                    
-                    Fluent:Notify({
-                        Title = "Teleport Success",
-                        Content = "Teleported to " .. selectedPlayer,
-                        Duration = 3
-                    })
-                    
-                    -- Menjalankan modul pepet jika diperlukan sistem bawaanmu
-                    if modules.pepet and typeof(modules.pepet.Enable) == "function" then
-                        modules.pepet:Enable()
-                    end
-                else
-                    Fluent:Notify({Title = "Error", Content = "Target character missing!", Duration = 3})
-                end
-            else
-                Fluent:Notify({Title = "Warning", Content = "Please select a player first!", Duration = 3})
+            if currentMap and currentMap[Value] then
+                activeTarget = currentMap[Value]
+                PepetModule:SetTarget(activeTarget)
             end
         end
     })
+    local TeleportToggle = Tabs.Teleport:AddToggle("TeleportToggle", {
+        Title = "Loop Teleport (Pepet Target)", 
+        Default = false
+    })
 
-    -- Logika Otomatis Update Dropdown pas Player Keluar/Masuk Game
-    local function refreshDropdown()
-        PlayerDropdown:SetValues(getPlayerList())
-    end
-    Players.PlayerAdded:Connect(refreshDropdown)
-    Players.PlayerRemoving:Connect(refreshDropdown)
+    TeleportToggle:OnChanged(function()
+        if activeTarget then
+            PepetModule:ToggleFollow(TeleportToggle.Value)
+        else
+            if TeleportToggle.Value == true then
+                TeleportToggle:SetValue(false) 
+                Fluent:Notify({
+                    Title = "Action Denied",
+                    Content = "Silakan pilih target player terlebih dahulu di dropdown!",
+                    Duration = 3
+                })
+            end
+        end
+    end)
 
-    -- -------------------------------------------------------------------------
-    -- SUNTIK AVATAR PANEL KE DALAM SIDEBAR FLUENT
+    Tabs.Teleport:AddButton({
+        Title = "Refresh Player List & Rankings",
+        Description = "Update the leaderboard dropdown based on current in-game stats",
+        Callback = function()
+            local newValues, newMap = PepetModule:GetSortedPlayers()
+            currentValues = newValues
+            currentMap = newMap
+            PlayerDropdown:SetValues(newValues) 
+            Fluent:Notify({
+                Title = "System Updated",
+                Content = "Daftar ranking player berhasil diperbarui!",
+                Duration = 2
+            })
+        end
+    })
+
     -- -------------------------------------------------------------------------
     local FluentGui = game:GetService("CoreGui"):FindFirstChild("Fluent") or game:GetService("CoreGui"):FindFirstChild("ScreenGui")
     if FluentGui then
@@ -228,10 +221,10 @@ function GUI:Init(modules)
         end
     end
 
-    -- Notifikasi Sukses Load GUI
+    -- Sistem Notifikasi Selamat Datang Berhasil di-Load
     Fluent:Notify({
-        Title = "Brodz Hub Loaded",
-        Content = "Welcome back, " .. LocalPlayer.DisplayName .. "!",
+        Title = "Brodz Hub V2 Loaded!",
+        Content = "Welcome back, " .. LocalPlayer.DisplayName .. ". Database connected successfully.",
         Duration = 5
     })
 end
