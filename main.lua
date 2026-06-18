@@ -9,7 +9,6 @@ loader:SetProgress(0.2)
 local GUI = loadstring(game:HttpGet(repo.."utils/GUI.lua"))()
 loader:SetProgress(0.4)
 local modules = {
-    ngapung = loadstring(game:HttpGet(repo.."modules/ngapung.lua"))(),
     ngabret = loadstring(game:HttpGet(repo.."modules/ngabret.lua"))(),
     esp = loadstring(game:HttpGet(repo.."modules/esp.lua"))()
 }
