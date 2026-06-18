@@ -39,7 +39,7 @@ local flyEnabled = false
 local targetWalkSpeed = 16
 
 function GUI:Init(modules)
-    print("Brodz Hub: Launching Mobile Optimized UI...")
+    print("Brodz Hub: Launching Hardened Crash-Proof UI...")
     
     local Window = Fluent:CreateWindow({
         Title = "Brodz Hub V2",
@@ -56,7 +56,7 @@ function GUI:Init(modules)
         Teleport = Window:AddTab({ Title = "Teleportation", Icon = "map-pin" })
     }
 
-    -- Proteksi & Pemicu Otomatis saat Karakter Respawn agar Speed Baru Tetap Aktif
+    -- Auto-restore walkspeed pas karakter respawn
     LocalPlayer.CharacterAdded:Connect(function(char)
         local humanoid = char:WaitForChild("Humanoid", 5)
         if humanoid and not flyEnabled and targetWalkSpeed ~= 16 then
@@ -66,7 +66,7 @@ function GUI:Init(modules)
     end)
 
     -- =========================================================================
-    -- TAB MAIN FEATURES (SLIDER SUPER RESPONSIF & INSTAN)
+    -- TAB MAIN FEATURES
     -- =========================================================================
     Tabs.Main:AddSlider("SpeedSlider", {
         Title = "WalkSpeed Control", Default = 16, Min = 16, Max = 150, Rounding = 0,
@@ -93,10 +93,17 @@ function GUI:Init(modules)
         flyEnabled = FlyToggle.Value
         if modules.ngapung then
             if flyEnabled then
-                if typeof(modules.ngapung.Enable) == "function" then pcall(function() modules.ngapung:Enable() end) end
+                if typeof(modules.ngapung.Enable) == "function" then 
+                    pcall(function() modules.ngapung:Enable() end) 
+                end
             else
-                if typeof(modules.ngapung.Disable) == "function" then pcall(function() modules.ngapung:Disable() end) end
-                -- Kembalikan walkspeed asal sesudah terbang selesai
+                -- Proteksi pcall biar kalau method hilang/salah nama kodingan GUI GA AKAN CRASH
+                if typeof(modules.ngapung.Disable) == "function" then 
+                    pcall(function() modules.ngapung:Disable() end) 
+                elseif typeof(modules.ngapung.Enable) == "function" then
+                    pcall(function() modules.ngapung:Enable(false) end)
+                end
+                
                 local char = LocalPlayer.Character
                 if char and char:FindFirstChild("Humanoid") then char.Humanoid.WalkSpeed = targetWalkSpeed end
             end
@@ -126,7 +133,7 @@ function GUI:Init(modules)
     end)
 
     -- =========================================================================
-    -- TAB TELEPORTATION (MOBILE ENGINE COMPATIBLE)
+    -- TAB TELEPORTATION (FIXED TEXT ERROR & CRASH PROOF)
     -- =========================================================================
     local TargetStatus = Tabs.Teleport:AddParagraph({
         Title = "Loop Teleport Status: OFF",
@@ -201,15 +208,16 @@ function GUI:Init(modules)
                                         
                                         if typeof(modules.pepet.Disable) == "function" then pcall(function() modules.pepet:Disable() end)
                                         elseif typeof(modules.pepet.Enable) == "function" then pcall(function() modules.pepet:Enable(nil) end) end
-                                        TargetStatus:SetTitle("Loop Teleport Status: OFF")
-                                        TargetStatus:SetContent("Target: None")
+                                        
+                                        -- Menggunakan pcall murni di paragraf bawaan Fluent biar anti error 'SetText'
+                                        pcall(function() TargetStatus:SetTitle("Loop Teleport Status: OFF") end)
+                                        pcall(function() TargetStatus:SetContent("Target: None") end)
                                     else
                                         currentTeleportTarget = p.Name 
                                         isTeleporting = true
                                         
                                         if typeof(modules.pepet.Enable) == "function" then pcall(function() modules.pepet:Enable(p) end) end
                                         
-                                        -- Mobile Backup Thread: Loop nempel instan tanpa menggunakan RunService
                                         task.spawn(function()
                                             while isTeleporting and currentTeleportTarget == p.Name do
                                                 if p and p.Parent and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
@@ -219,16 +227,16 @@ function GUI:Init(modules)
                                                 else
                                                     isTeleporting = false
                                                     currentTeleportTarget = nil
-                                                    TargetStatus:SetTitle("Loop Teleport Status: OFF")
-                                                    TargetStatus:SetContent("Target: Lost")
+                                                    pcall(function() TargetStatus:SetTitle("Loop Teleport Status: OFF") end)
+                                                    pcall(function() TargetStatus:SetContent("Target: Lost") end)
                                                     break
                                                 end
-                                                task.wait() -- Jeda frame aman anti-lag di mobile
+                                                task.wait()
                                             end
                                         end)
                                         
-                                        TargetStatus:SetTitle("Loop Teleport Status: 🟢 ON")
-                                        TargetStatus:SetContent("Sticky Tracking: " .. p.Name) 
+                                        pcall(function() TargetStatus:SetTitle("Loop Teleport Status: 🟢 ON") end)
+                                        pcall(function() TargetStatus:SetContent("Sticky Tracking: " .. p.Name) end)
                                     end
                                     isRefreshing = false
                                     updatePlayerListUI()
