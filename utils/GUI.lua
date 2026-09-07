@@ -2,13 +2,6 @@
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- 2. GET USER AVATAR
-local avatarUrl = "rbxassetid://0"
-local success, content = pcall(function()
-    return Players:GetUserThumbnailAsync(LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
-end)
-if success then avatarUrl = content end
-
 -- =============================================================================
 -- 3. INTERFACE INITIALIZATION (Fluent Library)
 -- =============================================================================
