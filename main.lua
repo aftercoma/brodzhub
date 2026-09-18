@@ -2,7 +2,7 @@ if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 local startTime = tick()
-local repo = "https://raw.githubusercontent.com/BroddyDumpcode/luah/main/"
+local repo = "https://raw.githubusercontent.com/aftercoma/luah/main/"
 local loader = loadstring(game:HttpGet(repo.."utils/loader.lua"))()
 loader:Init()
 loader:SetProgress(0.2)
